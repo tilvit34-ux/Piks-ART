@@ -1,0 +1,1716 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+<title>Деревня — Пиксельная RPG</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a1a; font-family: 'Courier New', monospace; color: #fff; user-select: none; touch-action: manipulation; }
+  #app { width: 100vw; height: 100vh; position: relative; overflow: hidden; }
+  .screen { position: absolute; inset: 0; display: none; flex-direction: column; overflow-y: auto; background: #1a1a2e; padding-top: 55px; }
+  .screen.active { display: flex; }
+  
+  #lobby { background: url('images/lobby.png') center top / 100% auto no-repeat; background-color: #2d5016; padding-top: 0; }
+  #farm-lobby { background: url('images/farm.png') center top / 100% auto no-repeat; background-color: #2d5016; padding-top: 0; }
+  #castle-1 { background: url('images/castle1.png') center top / 100% auto no-repeat; background-color: #1a1a2e; padding-top: 0; }
+  #castle-2 { background: url('images/castle2.png') center top / 100% auto no-repeat; background-color: #1a1a2e; padding-top: 0; }
+  #castle-3 { background: url('images/castle3.png') center top / 100% auto no-repeat; background-color: #1a1a2e; padding-top: 0; }
+  #castle-4 { background: url('images/castle4.png') center top / 100% auto no-repeat; background-color: #1a1a2e; padding-top: 0; }
+  
+  .click-zone { position: absolute; cursor: pointer; z-index: 10; }
+  .click-zone:active { background: rgba(255, 255, 255, 0.1); }
+  
+  .lobby-hint { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); font-size: 12px; color: rgba(255,255,255,0.8); text-shadow: 1px 1px 0 #000; background: rgba(0,0,0,0.5); padding: 8px 16px; border-radius: 15px; z-index: 5; pointer-events: none; border: 1px solid rgba(255,215,0,0.5); }
+  
+  #inv-btn, #hero-btn { position: fixed; bottom: 15px; width: 50px; height: 50px; background: rgba(0,0,0,0.75); border: 3px solid #FFD700; border-radius: 12px; font-size: 26px; cursor: pointer; z-index: 50; color: #fff; display: none; align-items: center; justify-content: center; box-shadow: 0 4px 0 rgba(0,0,0,0.5); }
+  #inv-btn { right: 15px; }
+  #hero-btn { right: 75px; }
+  #inv-btn:active, #hero-btn:active { transform: translateY(4px); box-shadow: 0 0 0 rgba(0,0,0,0.5); }
+  #inv-btn.show, #hero-btn.show { display: flex; }
+  
+  #healing-screen { background: rgba(0,0,0,0.95); display: none; align-items: center; justify-content: center; flex-direction: column; z-index: 1000; }
+  #healing-screen.active { display: flex; }
+  .healing-icon { font-size: 80px; margin-bottom: 20px; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+  .healing-text { font-size: 24px; color: #FFD700; text-align: center; margin-bottom: 10px; text-shadow: 2px 2px 0 #000; }
+  .healing-timer { font-size: 48px; color: #e74c3c; font-weight: bold; text-shadow: 2px 2px 0 #000; }
+  
+  #forest { background-color: #1a2a1a; }
+  .forest-content { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; gap: 20px; }
+  .forest-btn { width: 100%; max-width: 300px; padding: 20px; font-size: 18px; font-weight: bold; border: 3px solid #FFD700; border-radius: 10px; cursor: pointer; font-family: inherit; box-shadow: 0 6px 0 rgba(0,0,0,0.5); background: rgba(0,0,0,0.6); color: #fff; }
+  .forest-btn:active { transform: translateY(6px); box-shadow: 0 0 0 rgba(0,0,0,0.5); }
+  .forest-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .forest-btn.search { background: rgba(39, 174, 96, 0.85); }
+  .forest-btn.hunt { background: rgba(192, 57, 43, 0.85); }
+  
+  .search-process { display: none; flex-direction: column; align-items: center; gap: 15px; background: rgba(0,0,0,0.7); padding: 30px; border-radius: 15px; border: 3px solid #FFD700; }
+  .search-process.active { display: flex; }
+  .search-icon { font-size: 60px; animation: bounce 1s infinite; }
+  @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
+  .search-text { font-size: 20px; color: #FFD700; text-align: center; text-shadow: 2px 2px 0 #000; }
+  .search-timer { font-size: 36px; color: #fff; font-weight: bold; }
+  
+  .search-result { display: none; flex-direction: column; align-items: center; gap: 15px; padding: 20px; background: rgba(0,0,0,0.8); border: 3px solid #FFD700; border-radius: 10px; max-width: 350px; }
+  .search-result.active { display: flex; }
+  .result-icon { font-size: 60px; }
+  .result-text { font-size: 18px; color: #fff; text-align: center; text-shadow: 1px 1px 0 #000; }
+  .result-reward { font-size: 16px; color: #2ecc71; font-weight: bold; }
+  .result-btn { padding: 12px 30px; font-size: 16px; font-weight: bold; background: #27ae60; border: 2px solid #1e8449; color: #fff; border-radius: 6px; cursor: pointer; font-family: inherit; }
+  
+  .top-bar { display: flex; justify-content: space-between; align-items: center; padding: 8px; background: rgba(0,0,0,0.9); border-bottom: 2px solid #FFD700; position: sticky; top: 0; z-index: 20; }
+  .btn-back { background: #c0392b; border: 2px solid #922b21; color: #fff; padding: 8px 12px; font-size: 13px; font-weight: bold; border-radius: 4px; cursor: pointer; font-family: inherit; white-space: nowrap; }
+  .btn-back:active { background: #922b21; }
+  .btn-back.lobby-btn { background: #27ae60; border-color: #1e8449; }
+  .screen-title { font-size: 14px; font-weight: bold; color: #FFD700; text-shadow: 2px 2px 0 #000; text-align: center; flex: 1; }
+  
+  .farm-tabs { display: flex; background: #000; overflow-x: auto; }
+  .farm-tab { flex: 1; min-width: 80px; padding: 12px 5px; text-align: center; font-size: 12px; font-weight: bold; cursor: pointer; border-bottom: 3px solid transparent; color: #aaa; }
+  .farm-tab.active { background: #2c3e50; color: #FFD700; border-bottom-color: #FFD700; }
+  .farm-content { flex: 1; padding: 15px; overflow-y: auto; }
+  
+  .fields-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; max-width: 400px; margin: 0 auto; }
+  .field { aspect-ratio: 1; background: #6B4423; border: 3px solid #3e2817; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; box-shadow: inset 0 0 10px rgba(0,0,0,0.5); }
+  .field.planted { background: #4a3018; }
+  .field.ready { background: #4a7c59; animation: readyPulse 1s infinite; border-color: #FFD700; }
+  @keyframes readyPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,215,0,0.7); } 50% { box-shadow: 0 0 0 6px rgba(255,215,0,0); } }
+  .field-icon { font-size: 32px; }
+  .field-timer { font-size: 10px; background: rgba(0,0,0,0.8); padding: 2px 5px; border-radius: 3px; margin-top: 4px; }
+  
+  .animals-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  .animal-card { background: #34495e; border: 3px solid #000; border-radius: 8px; padding: 12px; display: flex; gap: 12px; align-items: center; }
+  .animal-icon { font-size: 48px; }
+  .animal-info { flex: 1; }
+  .animal-name { font-size: 16px; font-weight: bold; color: #FFD700; }
+  .animal-stats { font-size: 11px; color: #bbb; margin-top: 4px; }
+  .animal-feed { background: #27ae60; border: 2px solid #1e8449; color: #fff; padding: 6px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; font-family: inherit; }
+  .animal-feed:disabled { background: #555; border-color: #333; }
+  
+  .recipes-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  .recipe-card { background: #2c3e50; border: 3px solid #000; border-radius: 8px; padding: 12px; cursor: pointer; }
+  .recipe-card:active { background: #34495e; }
+  .recipe-name { font-size: 15px; font-weight: bold; color: #FFD700; }
+  .recipe-ingredients { font-size: 11px; color: #aaa; margin-top: 4px; }
+  .recipe-effect { font-size: 11px; color: #2ecc71; margin-top: 4px; }
+  .recipe-card.disabled { opacity: 0.4; }
+  
+  #battle { background: linear-gradient(180deg, #1a1a2e 0%, #2d1b3d 100%); }
+  .battle-scene { flex: 1; display: flex; flex-direction: column; justify-content: space-between; padding: 15px; }
+  .enemy-area, .hero-area { display: flex; flex-direction: column; align-items: center; padding: 15px; }
+  .enemy-sprite { font-size: 80px; filter: drop-shadow(0 0 10px rgba(255,0,0,0.5)); }
+  .enemy-image { max-width: 220px; max-height: 180px; filter: drop-shadow(0 0 15px rgba(255,0,0,0.6)); }
+  .hero-sprite { font-size: 80px; filter: drop-shadow(0 0 10px rgba(0,200,255,0.5)); }
+  .sprite-hit { animation: hitShake 0.3s; }
+  @keyframes hitShake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-15px); } 75% { transform: translateX(15px); } }
+  .hp-bar-container { width: 80%; max-width: 250px; height: 20px; background: #333; border: 2px solid #000; border-radius: 10px; overflow: hidden; margin-top: 8px; position: relative; }
+  .hp-bar { height: 100%; background: linear-gradient(90deg, #e74c3c, #c0392b); transition: width 0.3s; }
+  .hp-bar.hero { background: linear-gradient(90deg, #2ecc71, #27ae60); }
+  .hp-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; color: #fff; text-shadow: 1px 1px 0 #000; }
+  .name-label { font-size: 14px; font-weight: bold; color: #FFD700; text-shadow: 2px 2px 0 #000; margin-top: 5px; }
+  
+  .battle-log { background: rgba(0,0,0,0.7); border: 2px solid #333; border-radius: 6px; padding: 10px; height: 100px; overflow-y: auto; font-size: 12px; margin: 10px 0; }
+  .log-entry { margin: 3px 0; }
+  .log-hero { color: #3498db; }
+  .log-enemy { color: #e74c3c; }
+  .log-sys { color: #f39c12; }
+  .log-poison { color: #9b59b6; }
+  
+  .battle-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px; }
+  .battle-btn { background: #2980b9; border: 3px solid #1a5276; color: #fff; padding: 14px; font-size: 14px; font-weight: bold; border-radius: 6px; cursor: pointer; font-family: inherit; box-shadow: 0 4px 0 #1a5276; }
+  .battle-btn:active { transform: translateY(4px); box-shadow: 0 0 0 #1a5276; }
+  .battle-btn:disabled { background: #555; border-color: #333; box-shadow: none; }
+  .battle-btn.attack { background: #c0392b; border-color: #922b21; box-shadow: 0 4px 0 #922b21; }
+  .battle-btn.heal { background: #27ae60; border-color: #1e8449; box-shadow: 0 4px 0 #1e8449; }
+  
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 100; padding: 15px; }
+  .modal-overlay.active { display: flex; }
+  .modal { background: #2c3e50; border: 3px solid #FFD700; border-radius: 10px; padding: 15px; max-width: 600px; width: 100%; max-height: 90vh; overflow-y: auto; position: relative; }
+  .modal h3 { color: #FFD700; margin-bottom: 10px; text-align: center; font-size: 18px; }
+  .plant-list, .feed-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .plant-item, .feed-item { background: #34495e; border: 2px solid #1a252f; border-radius: 6px; padding: 10px 6px; text-align: center; cursor: pointer; }
+  .plant-item:active, .feed-item:active { background: #1a252f; }
+  .plant-item .p-icon, .feed-item .f-icon { font-size: 28px; }
+  .plant-item .p-name, .feed-item .f-name { font-size: 11px; margin-top: 4px; }
+  .plant-item .p-time { font-size: 10px; color: #95a5a6; }
+  .plant-item.disabled, .feed-item.disabled { opacity: 0.4; }
+  .modal-btns { display: flex; gap: 10px; margin-top: 15px; }
+  .modal-btn { flex: 1; padding: 12px; font-size: 16px; font-weight: bold; border: 2px solid #000; border-radius: 6px; cursor: pointer; font-family: inherit; }
+  .modal-btn.yes { background: #27ae60; color: #fff; }
+  .modal-btn.no { background: #c0392b; color: #fff; }
+  .modal-close { width: 100%; margin-top: 12px; background: #c0392b; border: 2px solid #922b21; color: #fff; padding: 10px; border-radius: 5px; cursor: pointer; font-family: inherit; font-weight: bold; }
+  
+  .hunt-enemy-card { background: #2c3e50; border: 2px solid #34495e; border-radius: 8px; padding: 12px 8px; text-align: center; cursor: pointer; }
+  .hunt-enemy-card:active { background: #1a252f; border-color: #FFD700; }
+  
+  .equip-slot { background: #1a252f; border: 2px solid #34495e; border-radius: 6px; padding: 6px; cursor: pointer; }
+  .equip-slot:active { border-color: #FFD700; background: #2c3e50; }
+  .equip-label { font-size: 11px; color: #aaa; text-align: center; margin-bottom: 3px; }
+  .equip-item { font-size: 12px; color: #FFD700; text-align: center; background: rgba(0,0,0,0.3); padding: 4px; border-radius: 4px; min-height: 22px; display: flex; align-items: center; justify-content: center; }
+  .equip-item.empty { color: #555; font-size: 14px; }
+  
+  .inv-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; padding: 5px; background: #1a252f; border-radius: 8px; }
+  .inv-cell { aspect-ratio: 1; background: #2c3e50; border: 2px solid #34495e; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 22px; cursor: pointer; }
+  .inv-cell:active { border-color: #FFD700; }
+  .inv-cell.empty-cell { opacity: 0.3; cursor: default; }
+  .inv-cell .qty { font-size: 9px; color: #FFD700; }
+  .inv-cell .item-type { font-size: 8px; color: #aaa; }
+  
+  .shop-container { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; max-height: 60vh; overflow-y: auto; }
+  .shop-column { background: rgba(0,0,0,0.3); border: 2px solid #34495e; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; }
+  .shop-column-title { font-size: 12px; color: #FFD700; text-align: center; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #FFD700; }
+  .shop-item-small { background: #2c3e50; border: 2px solid #34495e; border-radius: 6px; padding: 6px; margin-bottom: 5px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 11px; }
+  .shop-item-small:active { border-color: #FFD700; }
+  .shop-item-small.owned { opacity: 0.4; cursor: not-allowed; }
+  .shop-item-small .item-icon { font-size: 20px; }
+  .shop-item-small .item-info { flex: 1; }
+  .shop-item-small .item-name { color: #FFD700; font-weight: bold; }
+  .shop-item-small .item-stats { color: #2ecc71; font-size: 9px; }
+  .shop-item-small .item-price { color: #FFD700; font-weight: bold; font-size: 12px; white-space: nowrap; }
+  
+  .deal-panel { background: rgba(0,0,0,0.4); border: 2px solid #2ecc71; border-radius: 8px; padding: 10px; margin-top: 10px; min-height: 80px; }
+  .deal-title { font-size: 12px; color: #2ecc71; text-align: center; margin-bottom: 8px; }
+  
+  .toast { position: fixed; top: 100px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.9); border: 2px solid #FFD700; color: #FFD700; padding: 10px 20px; border-radius: 6px; font-size: 13px; z-index: 200; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+
+  #hero-sidebar {
+    position: fixed; top: 0; right: -400px; width: 380px; max-width: 100vw; height: 100vh;
+    background: linear-gradient(180deg, #1a2a3a 0%, #0f1a2a 100%); border-left: 3px solid #FFD700;
+    z-index: 90; transition: right 0.3s ease; overflow-y: auto; padding: 15px; box-shadow: -5px 0 20px rgba(0,0,0,0.8);
+  }
+  #hero-sidebar.open { right: 0; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="healing-screen">
+    <div class="healing-icon">🏥</div>
+    <div class="healing-text">ТЫ РАНЕН!<br>Лечение...</div>
+    <div class="healing-timer" id="healing-timer">0:30</div>
+    <div style="margin-top:20px;font-size:14px;color:#aaa;text-align:center">Нельзя никуда ходить<br>Жди восстановления...</div>
+  </div>
+
+  <div id="lobby" class="screen active">
+    <div class="click-zone" onclick="goTo('castle-1')" style="top: 20%; left: 0; width: 35%; height: 55%;"></div>
+    <div class="click-zone" onclick="goTo('forest')" style="top: 0; left: 35%; width: 30%; height: 45%;"></div>
+    <div class="click-zone" onclick="goTo('farm-lobby')" style="top: 20%; right: 0; width: 35%; height: 55%;"></div>
+    <div class="lobby-hint">Тапни на замок, лес или ферму</div>
+  </div>
+
+  <div id="farm-lobby" class="screen">
+    <div class="top-bar">
+      <button class="btn-back lobby-btn" onclick="goTo('lobby')">🏠 ЛОББИ</button>
+      <div class="screen-title">🏠 ФЕРМА</div>
+      <div style="width:70px"></div>
+    </div>
+    <div class="click-zone" onclick="goToFarmTab('kitchen')" style="top: 15%; left: 0; width: 35%; height: 50%;"></div>
+    <div class="click-zone" onclick="goToFarmTab('animals')" style="top: 10%; left: 35%; width: 30%; height: 45%;"></div>
+    <div class="click-zone" onclick="goToFarmTab('fields')" style="top: 30%; right: 0; width: 35%; height: 55%;"></div>
+    <div class="lobby-hint">Тапни на дом, загон или огород</div>
+  </div>
+
+  <div id="castle-1" class="screen">
+    <div class="top-bar">
+      <button class="btn-back lobby-btn" onclick="goTo('lobby')">🏠 ЛОББИ</button>
+      <div class="screen-title">🏰 ЗАМОК (1)</div>
+      <div style="width:70px"></div>
+    </div>
+    <div class="click-zone" onclick="openProf('smuggler')" style="top: 30%; left: 0; width: 30%; height: 40%;"></div>
+    <div class="click-zone" onclick="goTo('castle-2')" style="top: 25%; left: 35%; width: 30%; height: 50%;"></div>
+    <div class="click-zone" onclick="talkToGuard()" style="top: 30%; right: 0; width: 30%; height: 40%;"></div>
+    <div class="lobby-hint">Тапни на контрабандиста, вход или охрану</div>
+  </div>
+
+  <div id="castle-2" class="screen">
+    <div class="top-bar">
+      <button class="btn-back" onclick="goTo('castle-1')">← НАЗАД</button>
+      <div class="screen-title">🏰 ЗАМОК (2)</div>
+      <button class="btn-back lobby-btn" onclick="goTo('lobby')">🏠 ЛОББИ</button>
+    </div>
+    <div class="click-zone" onclick="openProf('leatherworker')" style="top: 30%; left: 0; width: 30%; height: 40%;"></div>
+    <div class="click-zone" onclick="goTo('castle-3')" style="top: 25%; left: 35%; width: 30%; height: 50%;"></div>
+    <div class="click-zone" onclick="openProf('blacksmith')" style="top: 30%; right: 0; width: 30%; height: 40%;"></div>
+    <div class="lobby-hint">Тапни на кожевника, проход или кузнеца</div>
+  </div>
+
+  <div id="castle-3" class="screen">
+    <div class="top-bar">
+      <button class="btn-back" onclick="goTo('castle-2')">← НАЗАД</button>
+      <div class="screen-title">🏰 ЗАМОК (3)</div>
+      <button class="btn-back lobby-btn" onclick="goTo('lobby')">🏠 ЛОББИ</button>
+    </div>
+    <div class="click-zone" onclick="openProf('merchant')" style="top: 30%; left: 0; width: 30%; height: 40%;"></div>
+    <div class="click-zone" onclick="goTo('castle-4')" style="top: 25%; left: 35%; width: 30%; height: 50%;"></div>
+    <div class="click-zone" onclick="openProf('archeologist')" style="top: 30%; right: 0; width: 30%; height: 40%;"></div>
+    <div class="lobby-hint">Тапни на торговца, проход или археолога</div>
+  </div>
+
+  <div id="castle-4" class="screen">
+    <div class="top-bar">
+      <button class="btn-back" onclick="goTo('castle-3')">← НАЗАД</button>
+      <div class="screen-title">🔮 БАШНЯ ЧАРОДЕЯ</div>
+      <button class="btn-back lobby-btn" onclick="goTo('lobby')">🏠 ЛОББИ</button>
+    </div>
+    <div class="click-zone" onclick="openProf('wizard')" style="top: 25%; left: 30%; width: 40%; height: 50%;"></div>
+    <div class="lobby-hint">Тапни на чародея для торговли</div>
+  </div>
+
+  <div id="farm" class="screen">
+    <div class="top-bar">
+      <button class="btn-back" onclick="goTo('farm-lobby')">← НАЗАД</button>
+      <div class="screen-title">🏠 ФЕРМА</div>
+      <button class="btn-back lobby-btn" onclick="goTo('lobby')">🏠 ЛОББИ</button>
+    </div>
+    <div class="farm-tabs">
+      <div class="farm-tab active" data-tab="fields" onclick="switchFarmTab('fields')">🌾 ПОЛЯ</div>
+      <div class="farm-tab" data-tab="animals" onclick="switchFarmTab('animals')">🐄 СКОТ</div>
+      <div class="farm-tab" data-tab="sawmill" onclick="switchFarmTab('sawmill')">🪚 ЛЕСОПИЛКА</div>
+      <div class="farm-tab" data-tab="kitchen" onclick="switchFarmTab('kitchen')">🍳 КУХНЯ</div>
+      <div class="farm-tab" data-tab="alchemy" onclick="switchFarmTab('alchemy')">⚗️ АЛХИМИЯ</div>
+    </div>
+    <div class="farm-content" id="farm-content"></div>
+  </div>
+
+  <div id="forest" class="screen">
+    <div class="top-bar">
+      <button class="btn-back lobby-btn" onclick="goTo('lobby')">🏠 ЛОББИ</button>
+      <div class="screen-title" id="forest-title">🌲 ЛЕС УЖАСА (1)</div>
+      <button class="btn-back lobby-btn" id="btn-deeper" onclick="goDeeper()" style="display:block;">ВГЛУБЬ ></button>
+    </div>
+    <div class="forest-content">
+      <div id="forest-main">
+        <button class="forest-btn search" onclick="startSearch()">🔍 ПОИСКАТЬ ПРИПАСЫ</button>
+        <button class="forest-btn hunt" onclick="startHunt()">🏹 УСТРОИТЬ ОХОТУ</button>
+      </div>
+      <div class="search-process" id="search-process">
+        <div class="search-icon" id="search-icon">🔍</div>
+        <div class="search-text" id="search-text">Ищем припасы...</div>
+        <div class="search-timer" id="search-timer">6</div>
+      </div>
+      <div class="search-result" id="search-result">
+        <div class="result-icon" id="result-icon"></div>
+        <div class="result-text" id="result-text"></div>
+        <div class="result-reward" id="result-reward"></div>
+        <button class="result-btn" onclick="backToForest()">ПРОДОЛЖИТЬ</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="battle" class="screen">
+    <div class="top-bar">
+      <button class="btn-back" onclick="fleeBattle()">🏃 БЕГСТВО</button>
+      <div class="screen-title" id="battle-location">БОЙ</div>
+      <div style="width:70px"></div>
+    </div>
+    <div class="battle-scene">
+      <div class="enemy-area">
+        <div id="enemy-display"></div>
+        <div class="name-label" id="enemy-name">ВРАГ</div>
+        <div id="bee-counter" style="color:#FFD700;font-size:12px;margin-top:4px"></div>
+        <div class="hp-bar-container">
+          <div class="hp-bar" id="enemy-hp-bar" style="width:100%"></div>
+          <div class="hp-text" id="enemy-hp-text">100 / 100</div>
+        </div>
+      </div>
+      <div class="battle-log" id="battle-log"></div>
+      <div class="hero-area">
+        <div class="hero-sprite" id="hero-sprite">🧙</div>
+        <div class="name-label">ГЕРОЙ</div>
+        <div id="hero-debuff" style="color:#e67e22;font-size:11px;margin-top:4px"></div>
+        <div class="hp-bar-container">
+          <div class="hp-bar hero" id="hero-hp-bar" style="width:100%"></div>
+          <div class="hp-text" id="hero-hp-text">10 / 10</div>
+        </div>
+      </div>
+      <div class="battle-actions">
+        <button class="battle-btn attack" id="btn-attack" onclick="heroAttack()">⚔️ АТАКА</button>
+        <button class="battle-btn heal" id="btn-heal" onclick="usePotion()">🧪 ЗЕЛЬЕ (<span id="potion-count">0</span>)</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-plant">
+    <div class="modal">
+      <h3>🌱 ВЫБЕРИ РАСТЕНИЕ</h3>
+      <div class="plant-list" id="plant-list"></div>
+      <button class="modal-close" onclick="closeModal('modal-plant')">ОТМЕНА</button>
+    </div>
+  </div>
+  
+  <div class="modal-overlay" id="modal-feed">
+    <div class="modal">
+      <h3>🌿 ЧЕМ КОРМИТЬ?</h3>
+      <div class="feed-list" id="feed-list"></div>
+      <button class="modal-close" onclick="closeModal('modal-feed')">ОТМЕНА</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-prof">
+    <div class="modal">
+      <button onclick="closeModal('modal-prof')" style="position:absolute;top:10px;right:10px;width:36px;height:36px;background:#c0392b;border:2px solid #922b21;border-radius:50%;color:#fff;font-size:20px;font-weight:bold;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center">✖</button>
+      <h3 id="prof-title">ПРОФЕССИЯ</h3>
+      <div id="prof-desc" style="font-size:13px;line-height:1.5;color:#ddd;white-space:pre-line;margin-bottom:10px"></div>
+      <div id="prof-shop" style="display:none">
+        <div id="shop-list" style="max-height:60vh;overflow-y:auto"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-prof')">ЗАКРЫТЬ</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-hive">
+    <div class="modal">
+      <h3>🐝 УЛЕЙ!</h3>
+      <p style="text-align:center;font-size:14px;color:#ddd;margin-bottom:15px">Ты нашёл улей!<br>Напасть на него?</p>
+      <div class="modal-btns">
+        <button class="modal-btn yes" onclick="attackHive()">ДА</button>
+        <button class="modal-btn no" onclick="skipHive()">НЕТ</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-hunt">
+    <div class="modal">
+      <h3>🏹 ВЫБЕРИ ЦЕЛЬ</h3>
+      <div style="font-size:12px;color:#aaa;text-align:center;margin-bottom:10px">Стоимость: 10 энергии</div>
+      <div id="hunt-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;max-height:60vh;overflow-y:auto;padding:5px"></div>
+      <button class="modal-close" onclick="closeModal('modal-hunt')">ОТМЕНА</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-equip">
+    <div class="modal">
+      <button onclick="closeModal('modal-equip')" style="position:absolute;top:10px;right:10px;width:36px;height:36px;background:#c0392b;border:2px solid #922b21;border-radius:50%;color:#fff;font-size:20px;font-weight:bold;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center">✖</button>
+      <h3 id="equip-slot-title">СЛОТ</h3>
+      <div id="equip-list" style="max-height:50vh;overflow-y:auto"></div>
+      <button class="modal-close" onclick="closeModal('modal-equip')">ОТМЕНА</button>
+    </div>
+  </div>
+
+  <div id="hero-sidebar">
+    <button onclick="closeHeroSidebar()" style="position:absolute;top:10px;right:10px;width:40px;height:40px;background:#c0392b;border:2px solid #922b21;border-radius:50%;color:#fff;font-size:22px;font-weight:bold;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center">✖</button>
+    <h3 style="color:#FFD700;text-align:center;margin-bottom:15px;font-size:24px">🧙 ГЕРОЙ</h3>
+    <div style="background:rgba(0,0,0,0.4);border:2px solid #FFD700;border-radius:8px;padding:12px;margin-bottom:15px;font-size:14px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div style="color:#e74c3c;font-size:15px">❤️ HP: <span id="side-hp">10/10</span></div>
+        <div style="color:#3498db;font-size:15px">⚔️ ATK: <span id="side-atk">1</span></div>
+        <div style="color:#2ecc71;font-size:15px">🛡️ DEF: <span id="side-def">0</span></div>
+        <div style="color:#9b59b6;font-size:15px">💨 SPD: <span id="side-spd">0</span></div>
+        <div style="color:#f39c12;font-size:15px">🎯 КРИТ: <span id="side-crit">5%</span></div>
+        <div style="color:#e67e22;font-size:15px">💥 КУ: <span id="side-critdmg">10%</span></div>
+        <div style="color:#1abc9c;font-size:15px">🛡️ БЛОК: <span id="side-block">0%</span></div>
+        <div style="color:#95a5a6;font-size:15px">💨 УКЛ: <span id="side-dodge">0%</span></div>
+      </div>
+      <div id="side-set" style="margin-top:10px;color:#2ecc71;text-align:center;font-size:13px"></div>
+      <div id="side-buffs" style="margin-top:8px;color:#9b59b6;text-align:center;font-size:13px"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:10px;margin-bottom:15px">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div class="equip-slot" onclick="openEquipSlot('helmet')"><div class="equip-label" style="font-size:11px">🎩 ШЛЯПА</div><div class="equip-item" id="side-eq-helmet" style="font-size:12px">—</div></div>
+        <div class="equip-slot" onclick="openEquipSlot('armor')"><div class="equip-label" style="font-size:11px">🦺 БРОНЯ</div><div class="equip-item" id="side-eq-armor" style="font-size:12px">—</div></div>
+        <div class="equip-slot" onclick="openEquipSlot('boots')"><div class="equip-label" style="font-size:11px">👢 БОТИНКИ</div><div class="equip-item" id="side-eq-boots" style="font-size:12px">—</div></div>
+      </div>
+      <div style="font-size:90px;text-align:center;filter:drop-shadow(0 0 15px rgba(0,200,255,0.5))">🧙</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div class="equip-slot" onclick="openEquipSlot('leftHand')"><div class="equip-label" style="font-size:11px">🛡️ ЩИТ</div><div class="equip-item" id="side-eq-leftHand" style="font-size:12px">—</div></div>
+        <div class="equip-slot" onclick="openEquipSlot('rightHand')"><div class="equip-label" style="font-size:11px">⚔️ ОРУЖИЕ</div><div class="equip-item" id="side-eq-rightHand" style="font-size:12px">—</div></div>
+        <div class="equip-slot" onclick="openEquipSlot('amulet')"><div class="equip-label" style="font-size:11px">📿 АМУЛЕТ</div><div class="equip-item" id="side-eq-amulet" style="font-size:12px">—</div></div>
+      </div>
+    </div>
+    <div style="border-top:2px solid #FFD700;padding-top:10px">
+      <div style="color:#FFD700;text-align:center;margin-bottom:10px;font-size:16px">🎒 ИНВЕНТАРЬ (тапни чтобы экипировать)</div>
+      <div class="inv-grid" id="side-inv-grid" style="grid-template-columns:repeat(5,1fr)"></div>
+    </div>
+  </div>
+
+  <div id="coin-panel" style="position:fixed;bottom:15px;left:15px;background:rgba(0,0,0,0.85);border:2px solid #FFD700;border-radius:10px;padding:10px 15px;z-index:50;display:flex;gap:12px;box-shadow:0 4px 0 rgba(0,0,0,0.5);">
+    <div style="display:flex;align-items:center;gap:5px">
+      <img src="images/gold.png" style="width:20px;height:20px" onerror="this.style.display='none'">
+      <span style="color:#FFD700;font-weight:bold;font-size:14px" id="coin-gold">0</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:5px">
+      <img src="images/silver.png" style="width:20px;height:20px" onerror="this.style.display='none'">
+      <span style="color:#FFD700;font-weight:bold;font-size:14px" id="coin-silver">0</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:5px">
+      <img src="images/bronze.png" style="width:20px;height:20px" onerror="this.style.display='none'">
+      <span style="color:#FFD700;font-weight:bold;font-size:14px" id="coin-bronze">0</span>
+    </div>
+  </div>
+
+  <div id="energy-panel" style="position:fixed;bottom:75px;left:15px;background:rgba(0,0,0,0.85);border:2px solid #3498db;border-radius:10px;padding:8px 12px;z-index:50;min-width:150px;box-shadow:0 4px 0 rgba(0,0,0,0.5);">
+    <div style="font-size:11px;color:#3498db;margin-bottom:4px">⚡ ЭНЕРГИЯ</div>
+    <div style="width:100%;height:12px;background:#333;border-radius:6px;overflow:hidden;position:relative">
+      <div id="energy-bar-small" style="height:100%;background:linear-gradient(90deg,#3498db,#2980b9);transition:width 0.3s;width:100%"></div>
+      <div id="energy-text-small" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:bold;color:#fff;text-shadow:1px 1px 0 #000">120/120</div>
+    </div>
+  </div>
+
+  <button id="hero-btn" onclick="openHeroSidebar()">🧙</button>
+  <button id="inv-btn" onclick="openHeroSidebar()">🎒</button>
+  <button id="reset-btn" onclick="resetGame()" style="position:fixed;bottom:15px;left:50%;transform:translateX(-50%);width:50px;height:50px;background:rgba(192,57,43,0.85);border:3px solid #922b21;border-radius:12px;font-size:22px;cursor:pointer;z-index:50;color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 0 rgba(0,0,0,0.5);" title="Сбросить прогресс">🔄</button>
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+const PLANTS = [
+  { id: 'lucerne', name: 'Люцерна', icon: '🌿', time: 5, reward: 5 },
+  { id: 'lettuce', name: 'Листья салата', icon: '🥬', time: 10, reward: 6 },
+  { id: 'mint', name: 'Мята', icon: '🍃', time: 15, reward: 8 },
+  { id: 'corn', name: 'Кукуруза', icon: '🌽', time: 25, reward: 10 },
+  { id: 'potato', name: 'Картофель', icon: '🥔', time: 35, reward: 12 },
+  { id: 'clover', name: 'Клецевина', icon: '🍀', time: 45, reward: 14 },
+  { id: 'beet', name: 'Свёкла', icon: '🟣', time: 60, reward: 16 },
+  { id: 'turnip', name: 'Репа', icon: '⚪', time: 75, reward: 18 },
+  { id: 'foxglove', name: 'Наперстянка', icon: '🌸', time: 90, reward: 25 }
+];
+
+const ANIMALS = [
+  { id: 'chicken', name: 'Курица', icon: '🐔', feeds: [{ plant: 'lettuce', bonus: null }, { plant: 'corn', bonus: 'quality_egg' }], products: ['яйцо', 'перо', 'мясо'] },
+  { id: 'cow', name: 'Корова', icon: '🐄', feeds: [{ plant: 'lucerne', bonus: 'milk_25' }, { plant: 'beet', bonus: 'quality_meat' }], products: ['молоко', 'шкура', 'телёнок', 'мясо', 'жир'] },
+  { id: 'sheep', name: 'Овца', icon: '🐑', feeds: [{ plant: 'lucerne', bonus: null }, { plant: 'turnip', bonus: 'quality_wool' }], products: ['шерсть', 'молоко', 'мясо'] }
+];
+
+const RECIPES = [
+  { name: 'Салат с грибами', ingredients: { lettuce: 1, mushrooms: 1 }, effect: '+15 HP', icon: '🥗', needsOven: false },
+  { name: 'Овощной салат', ingredients: { lettuce: 1, beet: 1, turnip: 1, potato: 1 }, effect: '+25 HP', icon: '🥙', needsOven: false },
+  { name: 'Смузи', ingredients: { lucerne: 1, mint: 1, honey: 1 }, effect: '+40 HP', icon: '🥤', needsOven: false },
+  { name: 'Вепрь на вертеле', ingredients: { boar_meat: 10, wild_apple: 5 }, effect: '+100 HP', icon: '🍖', needsOven: true, planksNeeded: 2 },
+  { name: 'Заяц по-по-веленски', ingredients: { rabbit_meat: 2, potato: 7, mushrooms: 4 }, effect: '+80 HP', icon: '🐇', needsOven: true, planksNeeded: 2 },
+  { name: 'Хрустящий заячий окорок', ingredients: { rabbit_meat: 5, honey: 6, milk: 2 }, effect: '+120 HP', icon: '🍗', needsOven: true, planksNeeded: 2 }
+];
+
+const ENEMIES = {
+  hive: { name: 'УЛЕЙ', icon: '🐝', hp: 45, maxHp: 45, atk: 4, defense: 8, spd: 5, critChance: 0, reward: 50, loot: ['honey', 'wax'], mechanic: 'swarm', bees: [] },
+  bear: { name: 'ДИКИЙ МЕДВЕДЬ', icon: '🐻', hp: 90, maxHp: 90, atk: 14, defense: 12, spd: 7, critChance: 5, critDmg: 150, reward: 100, loot: ['bear_skin', 'bear_meat'], mechanic: 'paw', attackCount: 0 },
+  wolf: { name: 'ВОЛК ОДИНОЧКА', icon: '🐺', image: 'images/wolf.png', hp: 55, maxHp: 55, atk: 8, defense: 4, spd: 11, critChance: 5, critDmg: 150, reward: 60, loot: ['wolf_tail', 'wolf_pelt', 'wolf_fang'], mechanic: 'roar', roarTurn: 0 },
+  rabbit: { name: 'БЕШЕНЫЙ КРОЛИК', icon: '🐇', hp: 20, maxHp: 20, atk: 3, defense: 2, spd: 18, critChance: 2, critDmg: 150, reward: 25, loot: ['rabbit_meat', 'rabbit_pelt'], mechanic: 'double_jump' },
+  fox: { name: 'ЛИС ХИТРЕЦ', icon: '🦊', hp: 50, maxHp: 50, atk: 6, defense: 5, spd: 14, critChance: 8, critDmg: 150, reward: 60, loot: ['fox_pelt', 'fox_tail'], mechanic: 'dodge_counter', dodgeChance: 25, missedLastTurn: false },
+  snake: { name: 'ДИКАЯ ЗМЕЯ', icon: '🐍', hp: 30, maxHp: 30, atk: 5, defense: 3, spd: 12, critChance: 10, critDmg: 150, reward: 40, loot: ['snake_skin', 'snake_venom'], mechanic: 'poison_crit' },
+  boar: { name: 'КАБАН', icon: '🐗', hp: 70, maxHp: 70, atk: 10, defense: 10, spd: 8, critChance: 3, critDmg: 150, reward: 80, loot: ['boar_meat', 'boar_tusk'], mechanic: 'charge' },
+  boss: { name: 'БОСС ЛОКАЦИИ', icon: '👹', hp: 110, maxHp: 110, atk: 16, defense: 15, spd: 13, critChance: 10, critDmg: 200, reward: 200, loot: ['boss_trophy', 'boss_heart'], mechanic: 'rage', enraged: false }
+};
+
+const LOOT_TABLE = {
+  wolf_tail: { icon: '🐺', name: 'Хвост волка', qty: 1 }, wolf_pelt: { icon: '🟫', name: 'Шкура волка', qty: 1 }, wolf_fang: { icon: '🦷', name: 'Клык волка', qty: 1 },
+  bear_skin: { icon: '🟫', name: 'Шкура медведя', qty: 1 }, bear_meat: { icon: '🥩', name: 'Мясо медведя', qty: 10 },
+  honey: { icon: '🍯', name: 'Мёд', qty: 2 }, wax: { icon: '🕯️', name: 'Воск', qty: 1 },
+  rabbit_meat: { icon: '🍖', name: 'Мясо кролика', qty: 3 }, rabbit_pelt: { icon: '⚪', name: 'Шкурка кролика', qty: 1 },
+  fox_pelt: { icon: '🟠', name: 'Шкура лиса', qty: 1 }, fox_tail: { icon: '🦊', name: 'Хвост лиса', qty: 1 },
+  snake_skin: { icon: '🟢', name: 'Шкура змеи', qty: 1 }, snake_venom: { icon: '🧪', name: 'Змеиный яд', qty: 2 },
+  boar_meat: { icon: '🥩', name: 'Мясо кабана', qty: 8 }, boar_tusk: { icon: '🦷', name: 'Клык кабана', qty: 2 },
+  boss_trophy: { icon: '🏆', name: 'Трофей босса', qty: 1 }, boss_heart: { icon: '❤️', name: 'Сердце босса', qty: 1 },
+  salt: { icon: '🧂', name: 'Соль', qty: 1 }
+};
+
+const EQUIPMENT_DB = {
+  farmer_amulet: { name: 'Амулет фермера', icon: '📿', type: 'amulet', hp: 5, atk: 1, def: 0, spd: 0, critChance: 1, critDmg: 0, blockChance: 0, dodge: 0, set: 'farmer', price: 7, currency: 'bronze' },
+  kitchen_knife: { name: 'Разделочный нож', icon: '🔪', type: 'rightHand', hp: 0, atk: 4, def: 0, spd: 1, critChance: 2, critDmg: 0, blockChance: 0, dodge: 0, set: 'farmer', price: 7, currency: 'bronze' },
+  grass_hat: { name: 'Травяная шляпа', icon: '🎩', type: 'helmet', hp: 10, atk: 0, def: 2, spd: 0, critChance: 0, critDmg: 0, blockChance: 0, dodge: 0, set: 'farmer', price: 7, currency: 'bronze' },
+  farmer_overall: { name: 'Комбинезон фермера', icon: '🦺', type: 'armor', hp: 15, atk: 0, def: 3, spd: -1, critChance: 0, critDmg: 0, blockChance: 0, dodge: 0, set: 'farmer', price: 7, currency: 'bronze' },
+  farmer_boots: { name: 'Сапоги фермера', icon: '👢', type: 'boots', hp: 0, atk: 0, def: 1, spd: 2, critChance: 0, critDmg: 0, blockChance: 0, dodge: 0, set: 'farmer', price: 7, currency: 'bronze' },
+  
+  novice_amulet: { name: 'Амулет новичка', icon: '📿', type: 'amulet', hp: 10, atk: 2, def: 3, spd: 0, critChance: 2, critDmg: 0, blockChance: 0, dodge: 0, set: 'novice', price: 25, currency: 'bronze' },
+  rusty_sword: { name: 'Дряхлый меч', icon: '🗡️', type: 'rightHand', hp: 0, atk: 10, def: 0, spd: -1, critChance: 3, critDmg: 20, blockChance: 0, dodge: 0, set: 'novice', price: 25, currency: 'bronze' },
+  novice_shield: { name: 'Щит новичка', icon: '🛡️', type: 'leftHand', hp: 15, atk: 0, def: 6, spd: -1, critChance: 0, critDmg: 0, blockChance: 0, dodge: 0, set: 'novice', price: 25, currency: 'bronze' },
+  old_helmet: { name: 'Старый шлем', icon: '⛑️', type: 'helmet', hp: 15, atk: 0, def: 5, spd: 0, critChance: 0, critDmg: 0, blockChance: 0, dodge: 0, set: 'novice', price: 25, currency: 'bronze' },
+  old_armor: { name: 'Старая латка', icon: '🦺', type: 'armor', hp: 30, atk: 0, def: 9, spd: -2, critChance: 0, critDmg: 0, blockChance: 0, dodge: 0, set: 'novice', price: 25, currency: 'bronze' },
+  old_boots: { name: 'Старые сапоги', icon: '👢', type: 'boots', hp: 5, atk: 0, def: 3, spd: -1, critChance: 0, critDmg: 0, blockChance: 0, dodge: 0, set: 'novice', price: 25, currency: 'bronze' }
+};
+
+const SET_BONUSES = {
+  farmer: { name: 'Рабочий', desc: '+5 HP регенерации за ход', regen: 5 },
+  novice: { name: 'Стартовый', desc: '+10% блок, +25% DEF при HP<30%, выживание с 1 HP', blockChance: 10 }
+};
+
+const PROFESSIONS = {
+  archeologist: { name: 'АРХЕОЛОГ', icon: '🏺', desc: 'Выдаёт квесты на поиск артефактов.\nСистема Музея — собирай редкости для коллекции и бонусов.' },
+  merchant: { name: 'ТАРГАШ', icon: '💼', desc: 'Торгует каждой вещью отдельно.\nПокупай экипировку поштучно! Продавай лут за 1🥈' },
+  blacksmith: { name: 'КУЗНЕЦ', icon: '⚒️', desc: '1) Миссии на развитие кузни\n2) Торговля — заказы на крафт\n3) Обработка ресурсов\n4) Продажа вещей из металла' },
+  wizard: { name: 'ЧАРОДЕЙ', icon: '🔮', desc: '1) Мини-квест на спасение\n2) Торговля ингредиентами\n3) Зачарование предметов\n4) Рецепты для алхимии' },
+  leatherworker: { name: 'КОЖЕВНИК', icon: '🧵', desc: '1) Выделка кожи из шкур\n2) Крафт кожаной экипировки\n3) Модификация снаряжения' },
+  smuggler: { name: 'КОНТРАБАНДИСТ', icon: '🎭', desc: 'Торгует редкими и запрещёнными товарами.\nМожет продать то, чего нет у других.' }
+};
+
+const state = {
+  money: { gold: 0, silver: 0, bronze: 0 },
+  seeds: 10, hp: 10, maxHp: 10, atk: 1, defense: 0, dodge: 0, critDmg: 10, critChance: 5, spd: 0, blockChance: 0,
+  energy: 120, maxEnergy: 120, potions: 2, inventory: [],
+  equipment: { helmet: null, armor: null, boots: null, leftHand: null, rightHand: null, amulet: null },
+  fields: Array(3).fill(null),
+  animals: { chicken: { fed: false, ready: false, timer: 0, cycle: 0 }, cow: { fed: false, ready: false, timer: 0, cycle: 0 }, sheep: { fed: false, ready: false, timer: 0, cycle: 0 } },
+  battle: null, healing: false, healingTime: 0,
+  ownedItems: new Set(),
+  forestLevel: 1,
+  bossesKilled: { 1: false, 2: false, 3: false },
+  activeEvilPotions: [],
+  bossSummoned: false,
+  activeBuffs: [],
+  sawmillBusy: false
+};
+
+for (let i = 0; i < 50; i++) state.inventory.push(null);
+
+const FOREST_BACKGROUNDS = { 1: 'images/forest1.png', 2: 'images/forest2.png', 3: 'images/forest3.png' };
+let soldCount = 0;
+let earnedSilver = 0;
+let leatherProcessing = false;
+
+// ===== СОХРАНЕНИЕ ИГРЫ =====
+const SAVE_KEY = 'derevnya_rpg_save';
+
+function saveGame() {
+  const saveData = {
+    money: state.money, seeds: state.seeds, hp: state.hp, maxHp: state.maxHp,
+    atk: state.atk, defense: state.defense, dodge: state.dodge, critDmg: state.critDmg,
+    critChance: state.critChance, spd: state.spd, blockChance: state.blockChance,
+    energy: state.energy, maxEnergy: state.maxEnergy, potions: state.potions,
+    inventory: state.inventory, equipment: state.equipment,
+    fields: state.fields, animals: state.animals,
+    ownedItems: Array.from(state.ownedItems),
+    forestLevel: state.forestLevel, bossesKilled: state.bossesKilled,
+    activeEvilPotions: state.activeEvilPotions, activeBuffs: state.activeBuffs,
+    savedAt: Date.now()
+  };
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(saveData)); } catch (e) {}
+}
+
+function loadGame() {
+  try {
+    const saved = localStorage.getItem(SAVE_KEY);
+    if (!saved) return false;
+    const data = JSON.parse(saved);
+    state.money = data.money || { gold: 0, silver: 0, bronze: 0 };
+    state.seeds = data.seeds ?? 10;
+    state.hp = data.hp ?? 10;
+    state.maxHp = data.maxHp ?? 10;
+    state.atk = data.atk ?? 1;
+    state.defense = data.defense ?? 0;
+    state.dodge = data.dodge ?? 0;
+    state.critDmg = data.critDmg ?? 10;
+    state.critChance = data.critChance ?? 5;
+    state.spd = data.spd ?? 0;
+    state.blockChance = data.blockChance ?? 0;
+    state.energy = data.energy ?? 120;
+    state.maxEnergy = data.maxEnergy ?? 120;
+    state.potions = data.potions ?? 2;
+    state.inventory = data.inventory || [];
+    state.equipment = data.equipment || { helmet: null, armor: null, boots: null, leftHand: null, rightHand: null, amulet: null };
+    state.fields = data.fields || Array(3).fill(null);
+    state.animals = data.animals || { chicken: { fed: false, ready: false, timer: 0, cycle: 0 }, cow: { fed: false, ready: false, timer: 0, cycle: 0 }, sheep: { fed: false, ready: false, timer: 0, cycle: 0 } };
+    state.ownedItems = new Set(data.ownedItems || []);
+    state.forestLevel = data.forestLevel || 1;
+    state.bossesKilled = data.bossesKilled || { 1: false, 2: false, 3: false };
+    state.activeEvilPotions = data.activeEvilPotions || [];
+    state.activeBuffs = data.activeBuffs || [];
+    while (state.inventory.length < 50) state.inventory.push(null);
+    return true;
+  } catch (e) { return false; }
+}
+
+function resetGame() {
+  if (confirm('⚠️ Точно сбросить весь прогресс? Это действие нельзя отменить!')) {
+    localStorage.removeItem(SAVE_KEY);
+    location.reload();
+  }
+}
+
+function getActiveSet() {
+  const slots = Object.values(state.equipment).filter(e => e && e.set);
+  if (slots.length < 4) return null;
+  const counts = {};
+  slots.forEach(e => { counts[e.set] = (counts[e.set]||0) + 1; });
+  for (const [set, count] of Object.entries(counts)) { if (count >= 4) return SET_BONUSES[set]; }
+  return null;
+}
+
+function getEffectiveStats() {
+  let atk = state.atk, def = state.defense, hp = state.maxHp;
+  let crit = state.critChance, critDmg = state.critDmg;
+  let spd = state.spd, blockChance = state.blockChance, dodge = state.dodge;
+  for (const slot in state.equipment) {
+    const item = state.equipment[slot];
+    if (item) {
+      atk += item.atk || 0; def += item.def || 0; hp += item.hp || 0;
+      crit += item.critChance || 0; critDmg += item.critDmg || 0;
+      spd += item.spd || 0; blockChance += item.blockChance || 0; dodge += item.dodge || 0;
+    }
+  }
+  state.activeBuffs.forEach(b => { if (b.type === 'atk') atk += b.value; });
+  const set = getActiveSet();
+  if (set) { blockChance += set.blockChance || 0; dodge += set.dodge || 0; }
+  return { atk, def, hp, crit, critDmg, spd, blockChance, dodge };
+}
+
+function updateBuffs() {
+  state.activeBuffs = state.activeBuffs.filter(b => { b.remaining--; return b.remaining > 0; });
+}
+
+function goTo(screenId) {
+  if (state.healing) { toast('Ты лечишься! Жди...'); return; }
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(screenId).classList.add('active');
+  if (screenId === 'forest') {
+    updateForestUI();
+    const hasPotion = state.activeEvilPotions.includes(state.forestLevel);
+    const bossNotKilled = !state.bossesKilled[state.forestLevel];
+    if (hasPotion && bossNotKilled) {
+      state.activeEvilPotions = state.activeEvilPotions.filter(l => l !== state.forestLevel);
+      setTimeout(() => { toast(`👁️ Зелье призывает босса части ${state.forestLevel}!`); startBattle('boss'); }, 500);
+    }
+  }
+  updateInvBtn();
+}
+
+function goDeeper() {
+  if (state.forestLevel < 3) { state.forestLevel++; updateForestUI(); toast(`Переход в часть ${state.forestLevel}...`); }
+}
+
+function goToFarmTab(tab) {
+  const allowed = { 'kitchen': true, 'alchemy': true, 'sawmill': true, 'animals': true, 'fields': true };
+  if (!allowed[tab]) { toast('Эта функция здесь недоступна!'); return; }
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('farm').classList.add('active');
+  switchFarmTab(tab);
+  updateInvBtn();
+}
+
+function updateForestUI() {
+  const forestScreen = document.getElementById('forest');
+  forestScreen.style.backgroundImage = `url('${FOREST_BACKGROUNDS[state.forestLevel]}')`;
+  forestScreen.style.backgroundSize = 'cover'; forestScreen.style.backgroundPosition = 'center'; forestScreen.style.backgroundRepeat = 'no-repeat';
+  const titles = { 1: '🌲 ЛЕС УЖАСА (1)', 2: '🌲 ЛЕС УЖАСА (2)', 3: '🌲 ЛЕС УЖАСА (3)' };
+  document.getElementById('forest-title').textContent = titles[state.forestLevel];
+  const deeperBtn = document.getElementById('btn-deeper');
+  if (state.forestLevel >= 3) { deeperBtn.style.display = 'none'; }
+  else if (state.bossesKilled[state.forestLevel]) { deeperBtn.style.display = 'block'; deeperBtn.textContent = 'ВГЛУБЬ >'; deeperBtn.disabled = false; }
+  else { deeperBtn.style.display = 'block'; deeperBtn.textContent = `🔒 УБЕЙ БОССА ${state.forestLevel}`; deeperBtn.disabled = true; deeperBtn.style.opacity = '0.5'; }
+}
+
+function updateInvBtn() {
+  const active = document.querySelector('.screen.active');
+  if (active && (active.id === 'battle' || active.id === 'healing-screen')) {
+    document.getElementById('hero-btn').classList.remove('show');
+    document.getElementById('inv-btn').classList.remove('show');
+  } else {
+    document.getElementById('hero-btn').classList.add('show');
+    document.getElementById('inv-btn').classList.add('show');
+  }
+}
+
+function updateCoins() {
+  document.getElementById('coin-gold').textContent = state.money.gold;
+  document.getElementById('coin-silver').textContent = state.money.silver;
+  document.getElementById('coin-bronze').textContent = state.money.bronze;
+  const energyPct = Math.max(0, Math.min(100, (state.energy / state.maxEnergy) * 100));
+  document.getElementById('energy-bar-small').style.width = energyPct + '%';
+  document.getElementById('energy-text-small').textContent = `${state.energy}/${state.maxEnergy}`;
+}
+
+function resetForest() {
+  document.getElementById('forest-main').style.display = 'block';
+  document.getElementById('search-process').classList.remove('active');
+  document.getElementById('search-result').classList.remove('active');
+}
+
+function openHeroSidebar() {
+  document.getElementById('hero-sidebar').classList.add('open');
+  const eff = getEffectiveStats();
+  document.getElementById('side-hp').textContent = state.hp + '/' + eff.hp;
+  document.getElementById('side-atk').textContent = eff.atk;
+  document.getElementById('side-def').textContent = eff.def;
+  document.getElementById('side-spd').textContent = eff.spd;
+  document.getElementById('side-crit').textContent = eff.crit + '%';
+  document.getElementById('side-critdmg').textContent = eff.critDmg + '%';
+  document.getElementById('side-block').textContent = eff.blockChance + '%';
+  document.getElementById('side-dodge').textContent = eff.dodge + '%';
+  const set = getActiveSet();
+  document.getElementById('side-set').textContent = set ? `🎽 СЕТ: ${set.name} — ${set.desc}` : '❌ Сет не активен';
+  
+  const buffsEl = document.getElementById('side-buffs');
+  if (state.activeBuffs.length > 0) {
+    buffsEl.textContent = '✨ БАФЫ: ' + state.activeBuffs.map(b => {
+      const m = Math.floor(b.remaining / 60), s = b.remaining % 60;
+      return b.type === 'atk' ? `⚔️ ATK+${b.value} (${m}:${s.toString().padStart(2,'0')})` : '';
+    }).filter(t=>t).join(' | ');
+  } else { buffsEl.textContent = ''; }
+  
+  for (const slot in state.equipment) {
+    const el = document.getElementById('side-eq-' + slot);
+    const item = state.equipment[slot];
+    if (item) { el.textContent = `${item.icon} ${item.name}`; el.classList.remove('empty'); }
+    else { el.textContent = '—'; el.classList.add('empty'); }
+  }
+  const grid = document.getElementById('side-inv-grid');
+  grid.innerHTML = '';
+  state.inventory.forEach((slot, i) => {
+    const cell = document.createElement('div');
+    if (!slot) { cell.className = 'inv-cell empty-cell'; }
+    else {
+      cell.className = 'inv-cell';
+      const dbItem = Object.values(EQUIPMENT_DB).find(e => e.name === slot.name);
+      cell.innerHTML = `<div>${slot.icon}</div><div class="qty">×${slot.qty}</div>${dbItem ? `<div class="item-type">${getTypeName(dbItem.type)}</div>` : ''}`;
+      cell.onclick = () => { if (dbItem) equipFromSidebar(dbItem.type, i); else showItemInfo(slot); };
+    }
+    grid.appendChild(cell);
+  });
+}
+
+function closeHeroSidebar() { document.getElementById('hero-sidebar').classList.remove('open'); }
+
+function equipFromSidebar(targetType, invIdx) {
+  const slotMap = { helmet: 'helmet', armor: 'armor', boots: 'boots', leftHand: 'leftHand', rightHand: 'rightHand', amulet: 'amulet' };
+  const slot = slotMap[targetType];
+  if (!slot) return;
+  const item = state.inventory[invIdx];
+  if (!item) return;
+  const dbItem = Object.values(EQUIPMENT_DB).find(e => e.name === item.name);
+  const craftItem = item.fullData || null;
+  if (state.equipment[slot]) addToInventory(state.equipment[slot].icon, state.equipment[slot].name, 1);
+  state.equipment[slot] = craftItem ? { ...craftItem } : (dbItem ? { ...dbItem } : { ...item });
+  state.inventory[invIdx] = null;
+  openHeroSidebar();
+  toast(`Экипировано: ${item.name}`);
+  saveGame();
+}
+
+function openInventory() { openHeroSidebar(); }
+function showItemInfo(item) { toast(`${item.icon} ${item.name} ×${item.qty}`); }
+
+function addToInventory(icon, name, qty = 1) {
+  const existing = state.inventory.find(s => s && s.name === name);
+  if (existing) { existing.qty += qty; return true; }
+  const emptyIdx = state.inventory.findIndex(s => s === null);
+  if (emptyIdx === -1) { toast('Сумка полная!'); return false; }
+  state.inventory[emptyIdx] = { icon, name, qty };
+  return true;
+}
+
+function decrInv(name, qty) {
+  const slot = state.inventory.find(s => s && s.name === name);
+  if (!slot) return;
+  slot.qty -= qty;
+  if (slot.qty <= 0) { const idx = state.inventory.indexOf(slot); state.inventory[idx] = null; }
+}
+
+function getTypeName(type) {
+  const names = { helmet: 'Шляпа', armor: 'Броня', boots: 'Ботинки', leftHand: 'Щит', rightHand: 'Оружие', amulet: 'Амулет', tool: 'Инструмент' };
+  return names[type] || type;
+}
+
+function switchFarmTab(tab) {
+  document.querySelectorAll('.farm-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.farm-tab[data-tab="${tab}"]`).classList.add('active');
+  renderFarmTab(tab);
+}
+
+function renderFarmTab(tab) {
+  const c = document.getElementById('farm-content');
+  if (tab === 'fields') renderFields(c);
+  else if (tab === 'animals') renderAnimals(c);
+  else if (tab === 'sawmill') renderSawmill(c);
+  else if (tab === 'kitchen') renderKitchen(c);
+  else if (tab === 'alchemy') renderAlchemy(c);
+}
+
+function renderFields(c) {
+  c.innerHTML = '<div class="fields-grid" id="fields-grid"></div>';
+  const grid = document.getElementById('fields-grid');
+  state.fields.forEach((f, i) => {
+    const div = document.createElement('div');
+    div.className = 'field';
+    if (f) {
+      const plant = PLANTS.find(p => p.id === f.plantId);
+      const remaining = Math.max(0, plant.time - (Date.now() - f.plantedAt) / 1000);
+      if (remaining <= 0) {
+        div.classList.add('ready');
+        div.innerHTML = `<div class="field-icon">${plant.icon}</div><div class="field-timer" style="color:#FFD700">ГОТОВО!</div>`;
+        div.onclick = () => harvest(i);
+      } else {
+        div.classList.add('planted');
+        div.innerHTML = `<div class="field-icon">🌱</div><div class="field-timer">${Math.ceil(remaining)}с</div>`;
+      }
+    } else {
+      div.innerHTML = '<div class="field-icon" style="opacity:0.3">➕</div>';
+      div.onclick = () => openPlantMenu(i);
+    }
+    grid.appendChild(div);
+  });
+}
+
+function openPlantMenu(fieldIdx) {
+  if (state.seeds <= 0) { toast('Нет семян!'); return; }
+  const list = document.getElementById('plant-list'); list.innerHTML = '';
+  PLANTS.forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'plant-item';
+    div.innerHTML = `<div class="p-icon">${p.icon}</div><div class="p-name">${p.name}</div><div class="p-time">${p.time} сек</div>`;
+    div.onclick = () => plantSeed(fieldIdx, p.id);
+    list.appendChild(div);
+  });
+  document.getElementById('modal-plant').classList.add('active');
+}
+
+function plantSeed(fieldIdx, plantId) {
+  if (state.seeds <= 0) return;
+  state.fields[fieldIdx] = { plantId, plantedAt: Date.now() };
+  state.seeds--;
+  closeModal('modal-plant');
+  renderFarmTab('fields');
+  toast(`Посажено: ${PLANTS.find(p=>p.id===plantId).name}`);
+  saveGame();
+}
+
+function harvest(i) {
+  const f = state.fields[i]; if (!f) return;
+  const plant = PLANTS.find(p => p.id === f.plantId);
+  addToInventory(plant.icon, plant.name, 1);
+  state.seeds++;
+  state.fields[i] = null;
+  renderFarmTab('fields'); updateCoins();
+  toast(`+1 ${plant.name}, +1🌱`);
+  saveGame();
+}
+
+function renderAnimals(c) {
+  c.innerHTML = '<div class="animals-grid"></div>';
+  const grid = c.querySelector('.animals-grid');
+  ANIMALS.forEach(a => {
+    const st = state.animals[a.id];
+    const card = document.createElement('div');
+    card.className = 'animal-card';
+    if (st.ready) { card.style.cursor = 'pointer'; card.style.background = '#27ae60'; }
+    let timerText = st.fed && !st.ready ? `⏳ Готовность: ${Math.max(0, 60 - st.timer)}с` : (st.ready ? '✅ ГОТОВО! Тапни для сбора' : '⚠️ Не покормлен');
+    card.innerHTML = `<div class="animal-icon">${a.icon}</div><div class="animal-info"><div class="animal-name">${a.name}</div><div class="animal-stats">Продукты: ${a.products.join(', ')}</div><div class="animal-stats">${timerText}</div></div><button class="animal-feed" ${st.fed ? 'disabled' : ''} onclick="event.stopPropagation();openFeedMenu('${a.id}')">${st.fed ? 'ЖДЁМ' : 'КОРМИТЬ'}</button>`;
+    if (st.ready) card.onclick = () => collectAnimal(a.id);
+    grid.appendChild(card);
+  });
+}
+
+function openFeedMenu(animalId) {
+  const animal = ANIMALS.find(a => a.id === animalId);
+  const list = document.getElementById('feed-list'); list.innerHTML = '';
+  animal.feeds.forEach(feed => {
+    const plant = PLANTS.find(p => p.id === feed.plant);
+    const have = state.inventory.find(s => s && s.name === plant.name);
+    const haveQty = have ? have.qty : 0;
+    const div = document.createElement('div');
+    div.className = 'feed-item' + (haveQty <= 0 ? ' disabled' : '');
+    div.innerHTML = `<div class="f-icon">${plant.icon}</div><div class="f-name">${plant.name}${feed.bonus ? '⭐' : ''}</div><div style="font-size:10px;color:#95a5a6">Есть: ${haveQty}</div>`;
+    if (haveQty > 0) div.onclick = () => feedAnimal(animalId, feed);
+    list.appendChild(div);
+  });
+  document.getElementById('modal-feed').classList.add('active');
+}
+
+function feedAnimal(animalId, feed) {
+  const plant = PLANTS.find(p => p.id === feed.plant);
+  const slot = state.inventory.find(s => s && s.name === plant.name);
+  if (!slot || slot.qty <= 0) return;
+  slot.qty--;
+  if (slot.qty <= 0) { const idx = state.inventory.indexOf(slot); state.inventory[idx] = null; }
+  state.animals[animalId].fed = true; state.animals[animalId].timer = 0; state.animals[animalId].bonus = feed.bonus;
+  closeModal('modal-feed'); renderFarmTab('animals');
+  toast(`${animalId} покормлен! Жди 60с...`);
+}
+
+function collectAnimal(animalId) {
+  const animal = ANIMALS.find(a => a.id === animalId);
+  const st = state.animals[animalId];
+  st.cycle = (st.cycle || 0) + 1;
+  if (animalId === 'chicken') {
+    addToInventory('🥚', 'Яйцо', 2);
+    if (Math.random() < 0.35) addToInventory('🪶', 'Перо', 1);
+    if (st.cycle % 5 === 0) addToInventory('🍖', 'Мясо курицы', 1);
+  } else if (animalId === 'cow') {
+    addToInventory('🥛', 'Молоко', 1);
+    if (Math.random() < 0.20) addToInventory('🟫', 'Шкура коровы', 1);
+    if (st.cycle % 9 === 0) addToInventory('🥩', 'Мясо коровы', 1);
+  } else if (animalId === 'sheep') {
+    if (Math.random() < 0.75) addToInventory('🧶', 'Шерсть', 1);
+    if (st.cycle % 18 === 0) addToInventory('🥩', 'Мясо овцы', 1);
+    if (Math.random() < 0.15) addToInventory('🧈', 'Жир', 3);
+    if (Math.random() < 0.36) addToInventory('🟫', 'Шкура овцы', 1);
+    if (Math.random() < 0.95) addToInventory('🥛', 'Молоко', 1);
+  }
+  state.animals[animalId] = { fed: false, ready: false, timer: 0, cycle: st.cycle };
+  renderFarmTab('animals');
+  toast(`Собрано с ${animal.name}!`);
+  saveGame();
+}
+
+function renderSawmill(c) {
+  const logs = state.inventory.find(s => s && s.name === 'Бревно');
+  const logCount = logs ? logs.qty : 0;
+  c.innerHTML = `
+    <div style="padding:15px;background:#34495e;border-radius:10px;margin-bottom:15px">
+      <h3 style="color:#FFD700;margin-bottom:10px">🪚 ЛЕСОПИЛКА</h3>
+      <p style="font-size:13px;color:#ddd">Раскалывай брёвна на доски</p>
+      <p style="font-size:12px;color:#aaa">1 бревно → 3 доски (7 секунд)</p>
+      <p style="font-size:14px;color:#FFD700;margin-top:10px">🪵 Брёвен: ${logCount}</p>
+    </div>
+    <button class="forest-btn" ${logCount <= 0 || state.sawmillBusy ? 'disabled' : ''} onclick="splitLog()" style="${logCount <= 0 || state.sawmillBusy ? 'opacity:0.5' : ''}">
+      ${state.sawmillBusy ? '⏳ РАБОТАЕТ...' : '🪓 РАСКОЛОТЬ БРЕВНО'}
+    </button>`;
+}
+
+function splitLog() {
+  const logSlot = state.inventory.find(s => s && s.name === 'Бревно');
+  if (!logSlot || logSlot.qty <= 0 || state.sawmillBusy) return;
+  state.sawmillBusy = true; toast('Раскалываем бревно... (7с)'); renderFarmTab('sawmill');
+  setTimeout(() => {
+    logSlot.qty--;
+    if (logSlot.qty <= 0) { const idx = state.inventory.indexOf(logSlot); state.inventory[idx] = null; }
+    addToInventory('📦', 'Доска', 3);
+    state.sawmillBusy = false; toast('✅ Получено 3 доски!'); renderFarmTab('sawmill');
+  }, 7000);
+}
+
+function getItemNameFromKey(k) {
+  const plant = PLANTS.find(x => x.id === k);
+  if (plant) return plant.name;
+  const map = { mushrooms: 'Лесные грибы', honey: 'Мёд', boar_meat: 'Мясо кабана', rabbit_meat: 'Мясо кролика', wild_apple: 'Дикое яблоко', milk: 'Молоко' };
+  return map[k] || k;
+}
+
+function renderKitchen(c) {
+  c.innerHTML = '<div class="recipes-grid"></div>';
+  const grid = c.querySelector('.recipes-grid');
+  RECIPES.forEach((r, i) => {
+    let canCook = true;
+    for (const [k, v] of Object.entries(r.ingredients)) {
+      const slot = state.inventory.find(s => s && s.name === getItemNameFromKey(k));
+      if (!slot || slot.qty < v) { canCook = false; break; }
+    }
+    if (r.needsOven) {
+      const planks = state.inventory.find(s => s && s.name === 'Доска');
+      if (!planks || planks.qty < (r.planksNeeded || 2)) canCook = false;
+    }
+    const card = document.createElement('div');
+    card.className = 'recipe-card' + (canCook ? '' : ' disabled');
+    const ingText = Object.entries(r.ingredients).map(([k, v]) => {
+      const name = getItemNameFromKey(k);
+      const slot = state.inventory.find(s => s && s.name === name);
+      return `${name}×${v} (${slot ? slot.qty : 0})`;
+    }).join(', ');
+    card.innerHTML = `<div class="recipe-name">${r.icon} ${r.name}</div><div class="recipe-ingredients">Нужно: ${ingText}${r.needsOven ? ` (нужно ${r.planksNeeded||2} доски)` : ''}</div><div class="recipe-effect">Эффект: ${r.effect}</div>`;
+    if (canCook) card.onclick = () => cook(i);
+    grid.appendChild(card);
+  });
+}
+
+function cook(i) {
+  const r = RECIPES[i];
+  for (const [k, v] of Object.entries(r.ingredients)) {
+    const slot = state.inventory.find(s => s && s.name === getItemNameFromKey(k));
+    if (!slot || slot.qty < v) { toast(`Не хватает: ${getItemNameFromKey(k)}!`); return; }
+  }
+  if (r.needsOven) {
+    const planks = state.inventory.find(s => s && s.name === 'Доска');
+    const needed = r.planksNeeded || 2;
+    planks.qty -= needed;
+    if (planks.qty <= 0) { const idx = state.inventory.indexOf(planks); state.inventory[idx] = null; }
+    toast(`🔥 Печь работает! Сожжено ${needed} доски.`);
+  }
+  for (const [k, v] of Object.entries(r.ingredients)) {
+    const slot = state.inventory.find(s => s && s.name === getItemNameFromKey(k));
+    slot.qty -= v;
+    if (slot.qty <= 0) { const idx = state.inventory.indexOf(slot); state.inventory[idx] = null; }
+  }
+  
+  let energyGain = 15;
+  if (r.name.includes('Салат') || r.name.includes('Смузи')) {
+    energyGain = 25;
+  } else if (r.name.includes('Вепрь') || r.name.includes('Заяц')) {
+    if (r.needsOven) { energyGain = 120; } else { energyGain = 65; }
+  }
+  
+  const eff = getEffectiveStats();
+  state.hp = Math.min(eff.hp, state.hp + (parseInt(r.effect.match(/\d+/)[0]) || 20));
+  state.energy = Math.min(state.maxEnergy, state.energy + energyGain);
+  state.potions++;
+  renderFarmTab('kitchen'); updateCoins();
+  toast(`Приготовлено: ${r.name}! +${energyGain}⚡`);
+  saveGame();
+}
+
+function renderAlchemy(c) {
+  c.innerHTML = `<div style="padding:10px;background:#34495e;border-radius:8px;margin-bottom:10px;font-size:13px">⚗️ <b style="color:#FFD700">АЛХИМИЯ</b><br>Создавай зелья. Эффект длится 5 минут.</div><div class="recipes-grid">
+    <div class="recipe-card ${(state.inventory.find(s=>s&&s.name==='Наперстянка')?.qty||0)>=1 ? '' : 'disabled'}" onclick="brewPotion('heal')"><div class="recipe-name">🧪 Зелье лечения</div><div class="recipe-ingredients">Наперстянка ×1</div><div class="recipe-effect">+1 зелье в бою</div></div>
+    <div class="recipe-card ${(state.inventory.find(s=>s&&s.name==='Мята')?.qty||0)>=2 ? '' : 'disabled'}" onclick="brewPotion('buff')"><div class="recipe-name">⚡ Зелье силы</div><div class="recipe-ingredients">Мята ×2</div><div class="recipe-effect">+5 ATK на 5 мин</div></div>
+    <div class="recipe-card ${(state.inventory.find(s=>s&&s.name==='Люцерна')?.qty||0)>=2 && (state.inventory.find(s=>s&&s.name==='Клецевина')?.qty||0)>=1 ? '' : 'disabled'}" onclick="brewPotion('fertilizer')"><div class="recipe-name">🌱 Удобрение</div><div class="recipe-ingredients">Люцерна ×2 + Клецевина</div><div class="recipe-effect">+5 семян</div></div>
+  </div>`;
+}
+
+function brewPotion(type) {
+  if (type === 'heal' && (state.inventory.find(s=>s&&s.name==='Наперстянка')?.qty||0) >= 1) {
+    decrInv('Наперстянка', 1); state.potions++; toast('Сварено зелье лечения! +🧪');
+  } else if (type === 'buff') {
+    if ((state.inventory.find(s=>s&&s.name==='Мята')?.qty||0) < 2) { toast('Не хватает мяты!'); return; }
+    decrInv('Мята', 2);
+    state.activeBuffs = state.activeBuffs.filter(b => b.type !== 'atk');
+    state.activeBuffs.push({ type: 'atk', value: 5, remaining: 300 });
+    toast('⚡ Зелье силы! +5 ATK на 5 минут');
+  } else if (type === 'fertilizer' && (state.inventory.find(s=>s&&s.name==='Люцерна')?.qty||0) >= 2 && (state.inventory.find(s=>s&&s.name==='Клецевина')?.qty||0) >= 1) {
+    decrInv('Люцерна', 2); decrInv('Клецевина', 1); state.seeds += 5; toast('Удобрение! +5🌱');
+  } else { toast('Не хватает ингредиентов!'); return; }
+  renderFarmTab('alchemy');
+  saveGame();
+}
+
+function checkEnergy(needed) {
+  if (state.energy <= 0) { toast('😴 Я устал, хочу перекус...'); return false; }
+  if (state.energy < needed) { toast(`Нужно ${needed} энергии! Сейчас: ${state.energy}`); return false; }
+  return true;
+}
+
+function startSearch() {
+  if (!checkEnergy(5)) return;
+  document.getElementById('forest-main').style.display = 'none';
+  document.getElementById('search-process').classList.add('active');
+  document.getElementById('search-result').classList.remove('active');
+  let timeLeft = 6;
+  document.getElementById('search-timer').textContent = timeLeft;
+  document.getElementById('search-icon').textContent = '🔍';
+  document.getElementById('search-text').textContent = 'Ищем припасы...';
+  const timer = setInterval(() => {
+    timeLeft--;
+    document.getElementById('search-timer').textContent = timeLeft;
+    if (timeLeft <= 0) { clearInterval(timer); finishSearch(); }
+  }, 1000);
+}
+
+function finishSearch() {
+  if (state.energy <= 0) { showResult('😴', 'Ты слишком устал...', 'Энергия закончилась'); return; }
+  const rand = Math.random() * 100;
+  if (rand < 25) { 
+    if (state.energy < 5) { showResult('😴', 'Слишком устал для поиска...', `Нужно 5, есть ${state.energy}`); return; }
+    state.energy -= 5; showResult('🫥', 'Ничего не нашли...', '-5 энергии'); updateCoins(); 
+  } else if (rand < 65) { chopTrees(); } else { findVegetation(); }
+}
+
+function chopTrees() {
+  if (state.energy < 5) { showResult('😴', 'Слишком устал рубить...', `Нужно 5, есть ${state.energy}`); return; }
+  state.energy -= 5; updateCoins();
+  const hasAxe = state.inventory.find(s => s && s.name === 'Топор');
+  if (!hasAxe) { showResult('🌳', 'Какие хорошие деревья...', 'Нечем рубить... (-5 энергии)'); return; }
+  document.getElementById('search-icon').textContent = '🪓';
+  document.getElementById('search-text').textContent = 'Рубим деревья...';
+  let timeLeft = 4;
+  document.getElementById('search-timer').textContent = timeLeft;
+  const timer = setInterval(() => {
+    timeLeft--;
+    document.getElementById('search-timer').textContent = timeLeft;
+    if (timeLeft <= 0) { clearInterval(timer); addToInventory('🪵', 'Бревно', 3); showResult('🪵', 'Порубили деревья!', '+3 бревна'); }
+  }, 1000);
+}
+
+function findVegetation() {
+  if (state.energy < 5) { showResult('😴', 'Слишком устал для сбора...', `Нужно 5, есть ${state.energy}`); return; }
+  state.energy -= 5; updateCoins();
+  const rand = Math.random() * 100;
+  if (rand < 35) { addToInventory('🍄', 'Лесные грибы', 3); showResult('🍄', 'Нашёл лесные грибы!', '+3 штуки'); }
+  else if (rand < 65) { addToInventory('🫐', 'Лесные ягоды', 5); addToInventory('🍎', 'Дикое яблоко', 2); showResult('🫐', 'Нашёл ягоды и фрукты!', '+5 ягод + 2 яблока'); }
+  else if (rand < 75) { addToInventory('🌿', 'Мох', 3); showResult('🌿', 'Нашёл мох!', '+3 штуки'); }
+  else if (rand < 95) { document.getElementById('modal-hive').classList.add('active'); }
+  else { startBattle('bear'); }
+}
+
+function showResult(icon, text, reward) {
+  document.getElementById('search-process').classList.remove('active');
+  document.getElementById('search-result').classList.add('active');
+  document.getElementById('result-icon').textContent = icon;
+  document.getElementById('result-text').textContent = text;
+  document.getElementById('result-reward').textContent = reward;
+  updateCoins();
+}
+
+function backToForest() { resetForest(); updateCoins(); }
+function attackHive() { document.getElementById('modal-hive').classList.remove('active'); startBattle('hive'); }
+function skipHive() { document.getElementById('modal-hive').classList.remove('active'); showResult('🐝', 'Ты прошёл мимо улья', 'Ничего не получил'); }
+
+function startHunt() {
+  if (!checkEnergy(10)) return;
+  const bossKilled = state.bossesKilled[state.forestLevel];
+  if (!bossKilled) {
+    const randomId = ['rabbit', 'wolf', 'fox', 'snake', 'boar'][Math.floor(Math.random() * 5)];
+    toast(`🎲 Случайная встреча: ${ENEMIES[randomId].name}!`);
+    state.energy -= 10; updateCoins();
+    setTimeout(() => startBattle(randomId), 500);
+    return;
+  }
+  const grid = document.getElementById('hunt-grid'); grid.innerHTML = '';
+  ['wolf', 'rabbit', 'fox', 'snake', 'boar', 'bear'].forEach(id => {
+    const e = ENEMIES[id];
+    const div = document.createElement('div');
+    div.className = 'hunt-enemy-card';
+    div.innerHTML = `<div style="font-size:36px">${e.icon}</div><div style="font-size:13px;font-weight:bold;color:#FFD700">${e.name}</div><div style="font-size:10px;color:#aaa">HP:${e.hp} ATK:${e.atk} DEF:${e.defense}</div><div style="font-size:9px;color:#2ecc71;margin-top:4px">Награда: лут</div>`;
+    div.onclick = () => { closeModal('modal-hunt'); state.energy -= 10; updateCoins(); startBattle(id); };
+    grid.appendChild(div);
+  });
+  document.getElementById('modal-hunt').classList.add('active');
+}
+
+function startBattle(enemyId) {
+  const eff = getEffectiveStats();
+  const enemyTemplate = ENEMIES[enemyId];
+  state.battle = {
+    enemyId, enemy: JSON.parse(JSON.stringify(enemyTemplate)),
+    heroHp: state.hp, heroMaxHp: eff.hp, heroAtk: eff.atk, heroDef: eff.def,
+    heroCrit: eff.crit, heroCritDmg: eff.critDmg, heroBlock: eff.blockChance, heroDodge: eff.dodge, heroSpd: eff.spd,
+    turn: 'hero', poison: 0, bleed: 0, bleedTurns: 0, heroStunned: 0, heroAtkDebuff: 0, heroAtkDebuffTurns: 0, turnCount: 0, heroPoisonTurns: 0, noviceSurvived: false
+  };
+  document.getElementById('battle-location').textContent = 'БОЙ С ' + enemyTemplate.name;
+  document.getElementById('enemy-name').textContent = enemyTemplate.name;
+  document.getElementById('battle-log').innerHTML = '';
+  document.getElementById('bee-counter').textContent = '';
+  document.getElementById('hero-debuff').textContent = '';
+  const display = document.getElementById('enemy-display'); display.innerHTML = '';
+  if (enemyTemplate.image) {
+    const img = document.createElement('img'); img.src = enemyTemplate.image; img.className = 'enemy-image'; img.id = 'enemy-sprite'; display.appendChild(img);
+  } else {
+    const emoji = document.createElement('div'); emoji.className = 'enemy-sprite'; emoji.id = 'enemy-sprite'; emoji.textContent = enemyTemplate.icon; display.appendChild(emoji);
+  }
+  logBattle(`Встречен ${enemyTemplate.name}!`, 'sys');
+  const hints = { paw: '⚠️ Сокрушительная лапа — каждый 2-й удар крит + оглушение!', swarm: '⚠️ Рой — призывает пчёл!', roar: '⚠️ Рык — снижает ATK на 20%!', double_jump: '⚠️ Двойной прыжок — бьёт 2 раза!', dodge_counter: '⚠️ Уклонение 25% + контратака!', poison_crit: '⚠️ Яд при крите — 3 HP/ход!', charge: '🐗 Рывок — при HP<50% бьёт первым ×1.5!', rage: '👹 Ярость — при HP<30% усиливается!' };
+  if (hints[enemyTemplate.mechanic]) logBattle(hints[enemyTemplate.mechanic], 'sys');
+  const set = getActiveSet(); if (set) logBattle(`🎽 СЕТ: ${set.name} — ${set.desc}`, 'sys');
+  updateBattleUI();
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('battle').classList.add('active');
+  updateInvBtn();
+}
+
+function updateBattleUI() {
+  const b = state.battle; if (!b) return;
+  document.getElementById('enemy-hp-bar').style.width = Math.max(0, (b.enemy.hp / b.enemy.maxHp) * 100) + '%';
+  document.getElementById('enemy-hp-text').textContent = `${Math.max(0,b.enemy.hp)} / ${b.enemy.maxHp}`;
+  document.getElementById('hero-hp-bar').style.width = Math.max(0, (b.heroHp / b.heroMaxHp) * 100) + '%';
+  document.getElementById('hero-hp-text').textContent = `${Math.max(0,b.heroHp)} / ${b.heroMaxHp}`;
+  document.getElementById('potion-count').textContent = state.potions;
+  document.getElementById('btn-attack').disabled = b.turn !== 'hero';
+  document.getElementById('btn-heal').disabled = b.turn !== 'hero' || state.potions <= 0;
+  if (b.enemy.mechanic === 'swarm') document.getElementById('bee-counter').textContent = b.enemy.bees.length > 0 ? `×${b.enemy.bees.length}` : '';
+  let debuffText = '';
+  if (b.heroAtkDebuffTurns > 0) debuffText += `⬇️ ATK -${b.heroAtkDebuff}% (${b.heroAtkDebuffTurns}х) `;
+  if (b.heroStunned > 0) debuffText += '💫 ОГЛУШЁН ';
+  if (b.heroPoisonTurns > 0) debuffText += `☠️ ЯД (${b.heroPoisonTurns}х) `;
+  document.getElementById('hero-debuff').textContent = debuffText;
+}
+
+function logBattle(text, type) {
+  const log = document.getElementById('battle-log');
+  const div = document.createElement('div'); div.className = 'log-entry log-' + type; div.textContent = '› ' + text;
+  log.appendChild(div); log.scrollTop = log.scrollHeight;
+}
+
+function getEnemySprite() { return document.getElementById('enemy-sprite'); }
+
+function heroAttack() {
+  const b = state.battle; if (b.turn !== 'hero') return;
+  if (b.heroStunned > 0) { b.heroStunned--; logBattle('Ты оглушён и пропускаешь ход!', 'sys'); b.turn = 'waiting'; updateBattleUI(); setTimeout(() => enemyTurn(), 800); return; }
+  b.turn = 'waiting'; b.turnCount++;
+  if (b.heroAtkDebuffTurns > 0) { b.heroAtkDebuffTurns--; if (b.heroAtkDebuffTurns <= 0) b.heroAtkDebuff = 0; }
+  if (b.heroPoisonTurns > 0) { b.heroHp -= 3; b.heroPoisonTurns--; logBattle(`☠️ Яд наносит 3 урона! (${b.heroPoisonTurns} ходов)`, 'poison'); }
+  let dmg = b.heroAtk * (1 - b.heroAtkDebuff / 100);
+  const isCrit = Math.random() * 100 < b.heroCrit;
+  if (isCrit) {
+    let critMult = 1 + b.heroCritDmg / 100;
+    const set = getActiveSet();
+    if (set && set.name === 'Охотничий' && b.enemy.hp < b.enemy.maxHp * 0.4) { critMult = 2.0; logBattle(`🦊 ГИБКОСТЬ ОХОТНИКА! x2.0 урон!`, 'sys'); }
+    dmg = Math.floor(dmg * critMult); logBattle(`💥 КРИТ!`, 'sys');
+  }
+  if (b.enemy.mechanic === 'swarm' && b.enemy.bees.length > 0) { logBattle(`🐝 Пчёлы блокируют урон!`, 'sys'); dmg = 0; }
+  else { if (b.enemy.defense) dmg = Math.max(1, Math.floor(dmg - b.enemy.defense)); }
+  if (dmg > 0) b.enemy.hp -= dmg;
+  logBattle(`Ты атакуешь ${b.enemy.name} на ${Math.floor(dmg)} урона!`, 'hero');
+  const sprite = getEnemySprite(); if (sprite) { sprite.classList.add('sprite-hit'); setTimeout(() => sprite.classList.remove('sprite-hit'), 300); }
+  updateBattleUI();
+  if (b.heroHp <= 0) { setTimeout(() => loseBattle(), 500); return; }
+  if (b.enemy.hp <= 0) { setTimeout(() => winBattle(), 500); } else { setTimeout(() => enemyTurn(), 800); }
+}
+
+function enemyTurn() {
+  const b = state.battle; b.turnCount++;
+  const set = getActiveSet();
+  if (set && set.regen) { b.heroHp = Math.min(b.heroMaxHp, b.heroHp + set.regen); logBattle(`🌱 Земля родная: +${set.regen} HP`, 'sys'); }
+  if (b.enemy.mechanic === 'rage' && b.enemy.enraged) { b.enemy.hp = Math.min(b.enemy.maxHp, b.enemy.hp + 3); logBattle('👹 Босс регенерирует +3 HP!', 'sys'); }
+  if (Math.random() * 100 < b.heroBlock) { logBattle(`🛡️ БЛОК! Атака отражена!`, 'sys'); b.turn = 'hero'; updateBattleUI(); return; }
+  if (Math.random() * 100 < b.heroDodge) { logBattle(`💨 УКЛОНЕНИЕ!`, 'sys'); if (b.enemy.mechanic === 'dodge_counter') b.enemy.missedLastTurn = true; b.turn = 'hero'; updateBattleUI(); return; }
+  if (b.poison > 0) { b.heroHp -= b.poison; logBattle(`Яд наносит ${b.poison} урона!`, 'poison'); b.poison++; }
+  if (b.bleed > 0) { b.heroHp -= b.bleed; b.bleedTurns--; logBattle(`Кровоток: ${b.bleed} урона!`, 'poison'); if (b.bleedTurns <= 0) b.bleed = 0; }
+  if (b.heroHp <= 0) { updateBattleUI(); setTimeout(() => loseBattle(), 500); return; }
+  let effectiveDef = b.heroDef;
+  if (set && set.name === 'Стартовый' && b.heroHp < b.heroMaxHp * 0.3) { effectiveDef = Math.floor(effectiveDef * 1.25); logBattle(`🛡️ СТАРТОВЫЙ: +25% DEF!`, 'sys'); }
+  
+  let dmg = b.enemy.atk;
+  if (b.enemy.mechanic === 'paw') {
+    b.enemy.attackCount++;
+    if (b.enemy.attackCount % 2 === 0) { dmg = Math.floor(b.enemy.atk * 2); b.heroStunned = 1; logBattle(`🐻 СОКРУШИТЕЛЬНАЯ ЛАПА! ${dmg} урона + ОГЛУШЕНИЕ!`, 'enemy'); }
+    else { logBattle(`${b.enemy.name} атакует на ${dmg} урона!`, 'enemy'); }
+  } else if (b.enemy.mechanic === 'swarm') {
+    if (b.turnCount % 3 === 0) { b.enemy.bees.push({ hp: 10, atk: 2 }); logBattle(`🐝 Улей призвал пчелу!`, 'sys'); }
+    if (b.enemy.bees.length > 0) { let total = 0; b.enemy.bees.forEach(bee => total += bee.atk); b.heroHp -= total; logBattle(`🐝 Рой атакует на ${total} урона!`, 'enemy'); }
+    else { logBattle(`${b.enemy.name} жалит на ${dmg} урона!`, 'enemy'); }
+  } else if (b.enemy.mechanic === 'roar') {
+    b.enemy.roarTurn++;
+    if (b.enemy.roarTurn % 3 === 0) { b.heroAtkDebuff = 20; b.heroAtkDebuffTurns = 2; logBattle(`🐺 РЫК! Твоя ATK снижена на 20% на 2 хода!`, 'enemy'); }
+    logBattle(`${b.enemy.name} атакует на ${dmg} урона!`, 'enemy');
+  } else if (b.enemy.mechanic === 'double_jump') {
+    let d1 = Math.floor(b.enemy.atk * 0.7), d2 = Math.floor(b.enemy.atk * 0.7);
+    b.heroHp -= (d1 + d2); logBattle(`🐇 Двойной прыжок! ${d1} + ${d2} урона!`, 'enemy');
+  } else if (b.enemy.mechanic === 'dodge_counter') {
+    if (b.enemy.missedLastTurn) { dmg = Math.floor(b.enemy.atk * 2); logBattle(`🦊 КОНТРАТАКА! ${dmg} урона (200% крит)!`, 'enemy'); b.enemy.missedLastTurn = false; }
+    else { logBattle(`${b.enemy.name} атакует на ${dmg} урона!`, 'enemy'); }
+  } else if (b.enemy.mechanic === 'poison_crit') {
+    if (Math.random() * 100 < b.enemy.critChance) { dmg = Math.floor(dmg * 1.5); b.heroPoisonTurns = 3; logBattle(`🐍 КРИТ + ЯД! ${dmg} урона, 3 хода яда!`, 'enemy'); }
+    else { logBattle(`${b.enemy.name} атакует на ${dmg} урона!`, 'enemy'); }
+  } else if (b.enemy.mechanic === 'charge') {
+    if (b.enemy.hp < b.enemy.maxHp * 0.5) {
+      const defIgnore = Math.floor(effectiveDef * 0.3);
+      const finalDmg = Math.max(1, Math.floor(b.enemy.atk * 1.5) - (effectiveDef - defIgnore));
+      b.heroHp -= finalDmg; logBattle(`🐗 РЫВОК! ${finalDmg} урона (игнор 30% DEF)!`, 'enemy');
+    } else { logBattle(`${b.enemy.name} атакует на ${dmg} урона!`, 'enemy'); }
+  } else if (b.enemy.mechanic === 'rage') {
+    if (b.enemy.hp < b.enemy.maxHp * 0.3 && !b.enemy.enraged) { b.enemy.enraged = true; b.enemy.atk = Math.floor(b.enemy.atk * 1.4); b.enemy.spd += 5; logBattle(`👹 ЯРОСТЬ! ATK +40%, SPD +5, реген +3!`, 'sys'); }
+    if (b.turnCount % 5 === 0) { dmg = Math.floor(dmg * 2); logBattle(`💥 ГАРАНТИРОВАННЫЙ КРИТ! ${dmg} урона!`, 'enemy'); }
+    else { logBattle(`${b.enemy.name} атакует на ${dmg} урона!`, 'enemy'); }
+  } else { logBattle(`${b.enemy.name} атакует на ${dmg} урона!`, 'enemy'); }
+  
+  b.heroHp -= dmg;
+  if (b.heroHp <= 0 && !b.noviceSurvived && getActiveSet()?.name === 'Стартовый') { b.heroHp = 1; b.noviceSurvived = true; logBattle(`🛡️ СТАРТОВЫЙ выжил с 1 HP!`, 'sys'); }
+  const heroSprite = document.getElementById('hero-sprite');
+  if (heroSprite) { heroSprite.classList.add('sprite-hit'); setTimeout(() => heroSprite.classList.remove('sprite-hit'), 300); }
+  updateBattleUI();
+  if (b.heroHp <= 0) { setTimeout(() => loseBattle(), 500); } else { b.turn = 'hero'; updateBattleUI(); }
+}
+
+function usePotion() {
+  const b = state.battle; if (b.turn !== 'hero' || state.potions <= 0) return;
+  state.potions--; b.heroHp = Math.min(b.heroMaxHp, b.heroHp + 50);
+  logBattle('Ты выпил зелье! +50 HP', 'sys'); b.turn = 'waiting'; updateBattleUI(); setTimeout(() => enemyTurn(), 800);
+}
+
+function winBattle() {
+  const b = state.battle; state.hp = b.heroHp; const enemy = ENEMIES[b.enemyId];
+  enemy.loot.forEach(l => { const itemData = LOOT_TABLE[l]; if (itemData) addToInventory(itemData.icon, itemData.name, itemData.qty); });
+  if (b.enemyId === 'boss') {
+    state.bossesKilled[state.forestLevel] = true;
+    state.activeEvilPotions = state.activeEvilPotions.filter(l => l !== state.forestLevel);
+    logBattle(`🏆 БОСС ЧАСТИ ${state.forestLevel} ПОВЕРЖЕН!`, 'sys');
+    toast(`🏆 Босс части ${state.forestLevel} повержен!`);
+    if (state.bossesKilled[1] && state.bossesKilled[2] && state.bossesKilled[3]) setTimeout(() => toast('🎉 ВСЕ БОССЫ ПОВЕРЖЕНЫ!'), 2500);
+  }
+  logBattle(`ПОБЕДА! Получен лут!`, 'sys'); toast(`Победа! Получен лут!`);
+  updateCoins(); saveGame(); setTimeout(() => { state.battle = null; goTo('forest'); }, 2000);
+}
+
+function loseBattle() { logBattle('ТЫ ПРОИГРАЛ...', 'sys'); toast('Поражение...'); setTimeout(() => { state.battle = null; startHealing(); }, 2000); }
+
+function fleeBattle() {
+  if (!state.battle) { goTo('forest'); return; }
+  if (Math.random() < 0.5) { logBattle('Ты сбежал!', 'sys'); state.battle = null; setTimeout(() => goTo('forest'), 800); }
+  else { logBattle('Не удалось сбежать!', 'sys'); state.battle.turn = 'waiting'; setTimeout(() => enemyTurn(), 500); }
+}
+
+function startHealing() {
+  state.healing = true; state.healingTime = 30; state.hp = state.maxHp;
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('healing-screen').classList.add('active'); updateInvBtn();
+  const healTimer = setInterval(() => {
+    state.healingTime--;
+    document.getElementById('healing-timer').textContent = `0:${state.healingTime.toString().padStart(2, '0')}`;
+    if (state.healingTime <= 0) { clearInterval(healTimer); state.healing = false; document.getElementById('healing-screen').classList.remove('active'); goTo('lobby'); toast('Ты восстановился!'); saveGame(); }
+  }, 1000);
+}
+
+function openEquipSlot(slot) {
+  const slotNames = { helmet: 'ШЛЯПА', armor: 'БРОНЯ', boots: 'БОТИНКИ', leftHand: 'ЩИТ', rightHand: 'ОРУЖИЕ', amulet: 'АМУЛЕТ' };
+  document.getElementById('equip-slot-title').textContent = slotNames[slot];
+  const list = document.getElementById('equip-list'); list.innerHTML = '';
+  if (state.equipment[slot]) {
+    const unequip = document.createElement('div');
+    unequip.style.cssText = 'background:#34495e;border:2px solid #1a252f;border-radius:6px;padding:8px;cursor:pointer;display:flex;align-items:center;gap:10px;margin-bottom:6px';
+    unequip.innerHTML = `<div style="color:#e74c3c;font-weight:bold">✖ СНЯТЬ: ${state.equipment[slot].icon} ${state.equipment[slot].name}</div>`;
+    unequip.onclick = () => { unequipItem(slot); closeModal('modal-equip'); openHeroSidebar(); };
+    list.appendChild(unequip);
+  }
+  const targetType = slot === 'amulet' ? 'amulet' : slot;
+  state.inventory.forEach((item, idx) => {
+    if (!item) return;
+    const dbItem = Object.values(EQUIPMENT_DB).find(e => e.name === item.name);
+    const craftItem = item.fullData || null;
+    const displayItem = craftItem || dbItem || item;
+    if (displayItem && displayItem.type === targetType) {
+      const div = document.createElement('div');
+      div.style.cssText = 'background:#34495e;border:2px solid #1a252f;border-radius:6px;padding:8px;cursor:pointer;display:flex;align-items:center;gap:10px;margin-bottom:6px';
+      div.innerHTML = `<div style="font-size:24px">${displayItem.icon}</div><div style="flex:1;font-size:11px"><div style="color:#FFD700">${displayItem.name}</div><div style="font-size:10px;color:#2ecc71">ATK+${displayItem.atk||0} DEF+${displayItem.def||0} HP+${displayItem.hp||0}</div></div>`;
+      div.onclick = () => { equipItem(slot, idx); closeModal('modal-equip'); openHeroSidebar(); };
+      list.appendChild(div);
+    }
+  });
+  if (list.children.length === 0) list.innerHTML = '<div style="text-align:center;color:#aaa;padding:20px">Нет подходящих предметов</div>';
+  closeHeroSidebar(); document.getElementById('modal-equip').classList.add('active');
+}
+
+function equipItem(slot, invIdx) {
+  if (state.equipment[slot]) addToInventory(state.equipment[slot].icon, state.equipment[slot].name, 1);
+  const item = state.inventory[invIdx];
+  const dbItem = Object.values(EQUIPMENT_DB).find(e => e.name === item.name);
+  const craftItem = item.fullData || null;
+  state.equipment[slot] = craftItem ? { ...craftItem } : (dbItem ? { ...dbItem } : { ...item });
+  state.inventory[invIdx] = null;
+  toast(`Экипировано: ${item.name}`);
+  saveGame();
+}
+
+function unequipItem(slot) {
+  const item = state.equipment[slot]; if (!item) return;
+  addToInventory(item.icon, item.name, 1); state.equipment[slot] = null;
+  toast(`Снято: ${item.name}`);
+  saveGame();
+}
+
+function updateDealCounters() {
+  const soldEl = document.getElementById('deal-sold-count');
+  const earnedEl = document.getElementById('deal-earned');
+  if (soldEl) soldEl.textContent = soldCount;
+  if (earnedEl) earnedEl.textContent = earnedSilver;
+}
+
+function sellItem(invIdx) {
+  const item = state.inventory[invIdx]; if (!item) return;
+  item.qty--;
+  if (item.qty <= 0) { state.inventory[invIdx] = null; }
+  state.money.silver += 1; soldCount++; earnedSilver++;
+  toast(`Продано: ${item.icon} ${item.name} за 1🥈`);
+  updateDealCounters(); openProf('merchant'); updateCoins();
+  saveGame();
+}
+
+function buyTool(toolName) {
+  const tools = { axe: { name: 'Топор', icon: '🪓', price: 5, currency: 'bronze' } };
+  const tool = tools[toolName]; if (!tool) return;
+  if (state.inventory.find(s => s && s.name === tool.name)) { toast('Этот инструмент уже куплен!'); return; }
+  
+  if (tool.currency === 'bronze' && state.money.bronze < tool.price) {
+    const needSilver = Math.ceil((tool.price - state.money.bronze) / 100);
+    if (state.money.silver >= needSilver) {
+      state.money.silver -= needSilver; state.money.bronze += needSilver * 100;
+      toast(`💱 Разменяно ${needSilver}🥈 → ${needSilver*100}🥉`);
+    } else if (state.money.gold > 0) {
+      state.money.gold -= 1; state.money.silver += 100;
+      toast(`💱 Разменяно 1🥇 → 100🥈`);
+      const needSilver2 = Math.ceil((tool.price - state.money.bronze) / 100);
+      if (state.money.silver >= needSilver2) { state.money.silver -= needSilver2; state.money.bronze += needSilver2 * 100; }
+    } else { toast(`Нужно ${tool.price}!`); return; }
+  }
+  state.money.bronze -= tool.price;
+  addToInventory(tool.icon, tool.name, 1);
+  toast(`Куплено: ${tool.name}!`);
+  updateCoins(); openProf('blacksmith');
+  saveGame();
+}
+
+function buyItem(itemKey) {
+  const item = EQUIPMENT_DB[itemKey]; if (!item) return;
+  if (state.ownedItems.has(item.name)) { toast('Эта вещь уже куплена!'); return; }
+  
+  let price = item.price, currency = item.currency;
+  if (currency === 'bronze' && state.money.bronze < price) {
+    const needSilver = Math.ceil((price - state.money.bronze) / 100);
+    if (state.money.silver >= needSilver) {
+      state.money.silver -= needSilver; state.money.bronze += needSilver * 100;
+      toast(`💱 Разменяно ${needSilver}🥈 → ${needSilver*100}🥉`);
+    } else if (state.money.gold > 0) {
+      state.money.gold -= 1; state.money.silver += 100;
+      toast(`💱 Разменяно 1🥇 → 100🥈`);
+      const needSilver2 = Math.ceil((price - state.money.bronze) / 100);
+      if (state.money.silver >= needSilver2) { state.money.silver -= needSilver2; state.money.bronze += needSilver2 * 100; }
+    } else { toast(`Не хватает ${price - state.money.bronze}!`); return; }
+  } else if (currency === 'silver' && state.money.silver < price) {
+    const needGold = Math.ceil((price - state.money.silver) / 100);
+    if (state.money.gold >= needGold) { state.money.gold -= needGold; state.money.silver += needGold * 100; toast(`💱 Разменяно ${needGold}🥇 → ${needGold*100}🥈`); }
+    else { toast(`Не хватает ${price - state.money.silver}!`); return; }
+  } else if (currency === 'gold' && state.money.gold < price) { toast(`Не хватает ${price - state.money.gold}🥇!`); return; }
+  
+  state.money[currency] -= price;
+  if (state.inventory.filter(s => s === null).length < 1) { toast('Сумка полная!'); return; }
+  addToInventory(item.icon, item.name, 1);
+  state.ownedItems.add(item.name); updateCoins(); openProf('merchant');
+  toast(`Куплено: ${item.name}!`);
+  saveGame();
+}
+
+function buySalt() {
+  if (state.money.silver < 5) { toast('Нужно 5🥈!'); return; }
+  if (state.inventory.filter(s => s === null).length < 1) { toast('Сумка полная!'); return; }
+  state.money.silver -= 5;
+  addToInventory('🧂', 'Соль', 1);
+  toast('Куплено: Соль!');
+  updateCoins();
+  openProf('smuggler');
+  saveGame();
+}
+
+function processLeather(inputName, outputName, ingredient, time) {
+  if (leatherProcessing) { toast('⏳ Обработка уже идёт...'); return; }
+  const slot = state.inventory.find(s => s && s.name === inputName);
+  if (!slot || slot.qty <= 0) { toast(`Нет ${inputName}!`); return; }
+  if (ingredient) {
+    const ing = state.inventory.find(s => s && s.name === ingredient);
+    if (!ing || ing.qty <= 0) { toast(`Нет ${ingredient}!`); return; }
+    ing.qty--;
+    if (ing.qty <= 0) { const idx = state.inventory.indexOf(ing); state.inventory[idx] = null; }
+  }
+  leatherProcessing = true;
+  toast(`⏳ Выделка ${inputName}... (${time}с)`);
+  setTimeout(() => {
+    slot.qty--;
+    if (slot.qty <= 0) { const idx = state.inventory.indexOf(slot); state.inventory[idx] = null; }
+    addToInventory('🟫', outputName, 1);
+    leatherProcessing = false;
+    toast(`✅ Получено: ${outputName}!`);
+    openProf('leatherworker');
+    saveGame();
+  }, time * 1000);
+}
+
+function craftLeatherArmor(recipe) {
+  const leather = state.inventory.find(s => s && s.name === recipe.leather);
+  const other = state.inventory.find(s => s && s.name === recipe.other);
+  if (!leather || leather.qty < recipe.leatherQty) { toast(`Нет ${recipe.leather}!`); return; }
+  if (!other || other.qty < recipe.otherQty) { toast(`Нет ${recipe.other}!`); return; }
+  leather.qty -= recipe.leatherQty;
+  if (leather.qty <= 0) { const idx = state.inventory.indexOf(leather); state.inventory[idx] = null; }
+  other.qty -= recipe.otherQty;
+  if (other.qty <= 0) { const idx = state.inventory.indexOf(other); state.inventory[idx] = null; }
+  
+  let qualityBonus = { hp: 0, def: 0, spd: 0, crit: 0 };
+  if (recipe.leather.includes('(мягкая)')) qualityBonus.spd = 1;
+  else if (recipe.leather.includes('(водостойкая)')) qualityBonus.def = 1;
+  else if (recipe.leather.includes('(элитная)')) { qualityBonus.hp = 5; qualityBonus.def = 1; }
+  
+  const item = {
+    name: recipe.name, icon: recipe.icon, type: recipe.slot, set: 'hunter',
+    hp: (recipe.stats.hp || 0) + qualityBonus.hp,
+    atk: 0,
+    def: (recipe.stats.def || 0) + qualityBonus.def,
+    spd: (recipe.stats.spd || 0) + qualityBonus.spd,
+    critChance: (recipe.stats.crit || 0) + qualityBonus.crit,
+    critDmg: 0, blockChance: 0, dodge: 0
+  };
+  
+  addToInventory(item.icon, item.name, 1);
+  const invSlot = state.inventory.find(s => s && s.name === item.name);
+  if (invSlot) invSlot.fullData = item;
+  
+  toast(`✅ Скрафчено: ${recipe.name}!`);
+  openProf('leatherworker');
+  saveGame();
+}
+
+function openProf(id) {
+  const p = PROFESSIONS[id];
+  document.getElementById('prof-title').textContent = p.icon + ' ' + p.name;
+  document.getElementById('prof-desc').textContent = p.desc;
+  const shopDiv = document.getElementById('prof-shop');
+  const shopList = document.getElementById('shop-list');
+  
+  if (id === 'merchant' || id === 'blacksmith' || id === 'wizard' || id === 'leatherworker' || id === 'smuggler') {
+    shopDiv.style.display = 'block'; shopList.innerHTML = '';
+    const container = document.createElement('div'); container.className = 'shop-container';
+    
+    const leftCol = document.createElement('div'); leftCol.className = 'shop-column';
+    leftCol.innerHTML = '<div class="shop-column-title">🎒 ТВОЙ ИНВЕНТАРЬ<br><small style="color:#aaa">Тапни чтобы продать (1🥈)</small></div>';
+    let hasItems = false;
+    state.inventory.forEach((slot, i) => {
+      if (!slot) return; hasItems = true;
+      const item = document.createElement('div'); item.className = 'shop-item-small';
+      item.innerHTML = `<div class="item-icon">${slot.icon}</div><div class="item-info"><div class="item-name">${slot.name}</div><div class="item-stats">×${slot.qty}</div></div><div class="item-price">1🥈</div>`;
+      item.onclick = () => sellItem(i); leftCol.appendChild(item);
+    });
+    if (!hasItems) leftCol.innerHTML += '<div style="text-align:center;color:#aaa;padding:20px;font-size:11px">Пусто</div>';
+    
+    const centerCol = document.createElement('div'); centerCol.className = 'shop-column';
+    centerCol.innerHTML = `
+      <div class="shop-column-title">💰 СДЕЛКА</div>
+      <div class="deal-panel">
+        <div class="deal-title">Продано: <span id="deal-sold-count">${soldCount}</span> предметов</div>
+        <div class="deal-title" style="margin-top:10px;color:#FFD700">Получено: <span id="deal-earned">${earnedSilver}</span> 🥈</div>
+      </div>`;
+    
+    const rightCol = document.createElement('div'); rightCol.className = 'shop-column';
+    
+    if (id === 'merchant') {
+      rightCol.innerHTML = '<div class="shop-column-title">🛒 ТОВАРЫ ТАРГАША<br><small style="color:#aaa">Тапни чтобы купить</small></div>';
+      const sets = { farmer: '🌾 РАБОЧИЙ (7🥉/вещь)', novice: '🛡️ СТАРТОВЫЙ (25🥉/вещь)' };
+      for (const [setKey, setName] of Object.entries(sets)) {
+        const setHeader = document.createElement('div'); setHeader.style.cssText = 'font-size:11px;color:#aaa;margin:8px 0 3px;text-align:center';
+        setHeader.textContent = setName; rightCol.appendChild(setHeader);
+        Object.entries(EQUIPMENT_DB).forEach(([key, item]) => {
+          if (item.set !== setKey) return;
+          const owned = state.ownedItems.has(item.name);
+          const div = document.createElement('div'); div.className = 'shop-item-small' + (owned ? ' owned' : '');
+          const coinIcon = item.currency === 'bronze' ? '🥉' : item.currency === 'silver' ? '🥈' : '🥇';
+          div.innerHTML = `<div class="item-icon">${item.icon}</div><div class="item-info"><div class="item-name">${item.name}</div><div class="item-stats">${getTypeName(item.type)}<br>ATK+${item.atk||0} DEF+${item.def||0} HP+${item.hp||0}</div></div>${owned ? '<div class="item-price" style="color:#e74c3c">✓</div>' : `<div class="item-price">${item.price}${coinIcon}</div>`}`;
+          if (!owned) div.onclick = () => buyItem(key); rightCol.appendChild(div);
+        });
+      }
+    } else if (id === 'blacksmith') {
+      rightCol.innerHTML = '<div class="shop-column-title">⚒️ ИНСТРУМЕНТЫ<br><small style="color:#aaa">Тапни чтобы купить</small></div>';
+      const hasAxe = state.inventory.find(s => s && s.name === 'Топор');
+      const axeDiv = document.createElement('div'); axeDiv.className = 'shop-item-small' + (hasAxe ? ' owned' : '');
+      axeDiv.innerHTML = `<div class="item-icon">🪓</div><div class="item-info"><div class="item-name">Топор</div><div class="item-stats">Инструмент<br>Позволяет рубить деревья</div></div>${hasAxe ? '<div class="item-price" style="color:#e74c3c">✓</div>' : '<div class="item-price">5🥉</div>'}`;
+      if (!hasAxe) axeDiv.onclick = () => buyTool('axe'); rightCol.appendChild(axeDiv);
+    } else if (id === 'wizard') {
+      rightCol.innerHTML = '<div class="shop-column-title">🔮 ЗЕЛЬЯ ПРИЗЫВА<br><small style="color:#aaa">Тапни чтобы сварить</small></div>';
+      const recipes = [
+        { bossLevel: 1, name: 'Зелье "Ощущение зла" I', icon: '👁️', ingredients: { 'Наперстянка': 1, 'Змеиный яд': 1, 'Клык волка': 1 }, desc: 'Босс 1 части' },
+        { bossLevel: 2, name: 'Зелье "Ощущение зла" II', icon: '👁️‍🗨️', ingredients: { 'Мята': 2, 'Змеиный яд': 1, 'Клык кабана': 1 }, desc: 'Босс 2 части' },
+        { bossLevel: 3, name: 'Зелье "Ощущение зла" III', icon: '👁️🔥', ingredients: { 'Наперстянка': 1, 'Мята': 2, 'Шкура лиса': 1, 'Клык волка': 1 }, desc: 'Босс 3 части' }
+      ];
+      recipes.forEach(recipe => {
+        const bossKilled = state.bossesKilled[recipe.bossLevel];
+        let hasAll = true, missingItems = [];
+        for (const [ingName, qty] of Object.entries(recipe.ingredients)) {
+          const have = state.inventory.find(s => s && s.name === ingName)?.qty || 0;
+          if (have < qty) { hasAll = false; missingItems.push(`${ingName}×${qty}`); }
+        }
+        const hasActive = state.activeEvilPotions.includes(recipe.bossLevel);
+        const div = document.createElement('div'); div.className = 'shop-item-small' + (bossKilled ? ' owned' : '');
+        let statusHtml = '';
+        if (bossKilled) statusHtml = '<div class="item-price" style="color:#e74c3c">✓</div>';
+        else if (hasActive) statusHtml = '<div class="item-price" style="color:#f39c12">!</div>';
+        else if (!hasAll) statusHtml = '<div class="item-price" style="color:#e74c3c;font-size:9px">Нет</div>';
+        else statusHtml = '<div class="item-price" style="color:#2ecc71">Варить</div>';
+        div.innerHTML = `<div class="item-icon">${recipe.icon}</div><div class="item-info"><div class="item-name">${recipe.name}</div><div class="item-stats">${recipe.desc}</div></div>${statusHtml}`;
+        if (!bossKilled && !hasActive && hasAll) div.onclick = () => brewEvilPotion(recipe.bossLevel);
+        rightCol.appendChild(div);
+      });
+    } else if (id === 'leatherworker') {
+      rightCol.innerHTML = '<div class="shop-column-title">🧵 ВЫДЕЛКА И КРАФТ</div>';
+      const info1 = document.createElement('div');
+      info1.style.cssText = 'font-size:10px;color:#aaa;margin-bottom:8px;padding:6px;background:rgba(0,0,0,0.3);border-radius:4px';
+      info1.innerHTML = 'Шкура + ингредиент = кожа<br>Кожа + Шерсть = броня';
+      rightCol.appendChild(info1);
+      
+      const leatherRecipes = [
+        { input: 'Шкура волка', output: 'Волчья кожа', quality: 'обычная', icon: '🟫', ingredient: null, time: 5 },
+        { input: 'Шкура медведя', output: 'Медвежья кожа', quality: 'обычная', icon: '🟫', ingredient: null, time: 5 },
+        { input: 'Шкура лиса', output: 'Лисья кожа', quality: 'обычная', icon: '🟠', ingredient: null, time: 5 },
+        { input: 'Шкура змеи', output: 'Змеиная кожа', quality: 'обычная', icon: '🟢', ingredient: null, time: 5 },
+        { input: 'Шкура коровы', output: 'Коровья кожа', quality: 'обычная', icon: '🟫', ingredient: null, time: 5 },
+        { input: 'Шкура овцы', output: 'Овечья кожа', quality: 'обычная', icon: '⚪', ingredient: null, time: 5 },
+        { input: 'Шкура волка', output: 'Волчья кожа (мягкая)', quality: 'мягкая', icon: '🟫', ingredient: 'Жир', time: 8 },
+        { input: 'Шкура лиса', output: 'Лисья кожа (водостойкая)', quality: 'водостойкая', icon: '🟠', ingredient: 'Воск', time: 10 },
+        { input: 'Шкура медведя', output: 'Медвежья кожа (элитная)', quality: 'элитная', icon: '🟫', ingredient: 'Соль', time: 12 }
+      ];
+      leatherRecipes.forEach(recipe => {
+        const have = state.inventory.find(s => s && s.name === recipe.input);
+        const haveQty = have ? have.qty : 0;
+        let canProcess = haveQty > 0;
+        let missingText = '';
+        if (recipe.ingredient) {
+          const ing = state.inventory.find(s => s && s.name === recipe.ingredient);
+          if (!ing || ing.qty <= 0) { canProcess = false; missingText = `+${recipe.ingredient}`; }
+        }
+        const qualityColor = recipe.quality === 'обычная' ? '#aaa' : recipe.quality === 'мягкая' ? '#2ecc71' : recipe.quality === 'водостойкая' ? '#3498db' : '#f39c12';
+        const div = document.createElement('div'); div.className = 'shop-item-small' + (!canProcess ? ' owned' : '');
+        div.innerHTML = `<div class="item-icon">${recipe.icon}</div><div class="item-info"><div class="item-name">${recipe.input}</div><div class="item-stats" style="color:${qualityColor}">→ ${recipe.output}<br>${recipe.ingredient ? `+${recipe.ingredient} ` : ''}(${recipe.time}с)</div></div><div class="item-price">${canProcess ? 'Обработать' : `Нет${missingText}`}</div>`;
+        if (canProcess) div.onclick = () => processLeather(recipe.input, recipe.output, recipe.ingredient, recipe.time);
+        rightCol.appendChild(div);
+      });
+      
+      const craftHeader = document.createElement('div');
+      craftHeader.style.cssText = 'font-size:11px;color:#FFD700;margin:10px 0 5px;text-align:center;border-top:1px solid #FFD700;padding-top:5px';
+      craftHeader.textContent = '🦺 КРАФТ ОДЕЖДЫ';
+      rightCol.appendChild(craftHeader);
+      
+      const craftRecipes = [
+        { name: 'Кожаная шляпа', icon: '🎩', leather: 'Волчья кожа', leatherQty: 1, other: 'Шерсть', otherQty: 2, slot: 'helmet', stats: { hp: 15, def: 4, spd: 1, crit: 2 } },
+        { name: 'Кожаный костюм', icon: '🦺', leather: 'Медвежья кожа', leatherQty: 2, other: 'Шерсть', otherQty: 3, slot: 'armor', stats: { hp: 25, def: 8, spd: -1 } },
+        { name: 'Кожаные сапоги', icon: '👢', leather: 'Лисья кожа', leatherQty: 1, other: 'Шерсть', otherQty: 1, slot: 'boots', stats: { def: 3, spd: 3, crit: 1 } }
+      ];
+      craftRecipes.forEach(recipe => {
+        const leather = state.inventory.find(s => s && s.name === recipe.leather);
+        const leatherQty = leather ? leather.qty : 0;
+        const other = state.inventory.find(s => s && s.name === recipe.other);
+        const otherQty = other ? other.qty : 0;
+        const canCraft = leatherQty >= recipe.leatherQty && otherQty >= recipe.otherQty;
+        const div = document.createElement('div'); div.className = 'shop-item-small' + (!canCraft ? ' owned' : '');
+        div.innerHTML = `<div class="item-icon">${recipe.icon}</div><div class="item-info"><div class="item-name">${recipe.name}</div><div class="item-stats">${recipe.leather}×${recipe.leatherQty} + ${recipe.other}×${recipe.otherQty}<br>HP+${recipe.stats.hp||0} DEF+${recipe.stats.def||0} SPD+${recipe.stats.spd||0} КРИТ+${recipe.stats.crit||0}%</div></div><div class="item-price">${canCraft ? 'Скрафтить' : 'Нет'}</div>`;
+        if (canCraft) div.onclick = () => craftLeatherArmor(recipe);
+        rightCol.appendChild(div);
+      });
+    } else if (id === 'smuggler') {
+      rightCol.innerHTML = '<div class="shop-column-title">🎭 ЧЁРНЫЙ РЫНОК<br><small style="color:#aaa">Редкие товары</small></div>';
+      const saltDiv = document.createElement('div');
+      saltDiv.className = 'shop-item-small';
+      saltDiv.innerHTML = `<div class="item-icon">🧂</div><div class="item-info"><div class="item-name">Соль</div><div class="item-stats">Для элитной выделки кожи</div></div><div class="item-price">5🥈</div>`;
+      saltDiv.onclick = () => buySalt();
+      rightCol.appendChild(saltDiv);
+    }
+    
+    container.appendChild(leftCol); container.appendChild(centerCol); container.appendChild(rightCol);
+    shopList.appendChild(container); updateDealCounters();
+  } else {
+    shopDiv.style.display = 'none';
+  }
+  document.getElementById('modal-prof').classList.add('active');
+}
+
+function brewEvilPotion(bossLevel) {
+  const recipes = { 1: { 'Наперстянка': 1, 'Змеиный яд': 1, 'Клык волка': 1 }, 2: { 'Мята': 2, 'Змеиный яд': 1, 'Клык кабана': 1 }, 3: { 'Наперстянка': 1, 'Мята': 2, 'Шкура лиса': 1, 'Клык волка': 1 } };
+  const recipe = recipes[bossLevel]; if (!recipe) return;
+  for (const [ingName, qty] of Object.entries(recipe)) {
+    const have = state.inventory.find(s => s && s.name === ingName)?.qty || 0;
+    if (have < qty) { toast('Не хватает ингредиентов!'); return; }
+  }
+  if (state.bossesKilled[bossLevel]) { toast('Этот босс уже повержен!'); return; }
+  if (state.activeEvilPotions.includes(bossLevel)) { toast('Зелье уже сварено!'); return; }
+  for (const [ingName, qty] of Object.entries(recipe)) decrInv(ingName, qty);
+  state.activeEvilPotions.push(bossLevel);
+  toast(`👁️ Сварено зелье для босса части ${bossLevel}!`);
+  closeModal('modal-prof');
+  saveGame();
+}
+
+function talkToGuard() { toast('🛡️ Охрана: "Привет, путник! Проходи, но будь осторожен."'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._to); t._to = setTimeout(() => t.classList.remove('show'), 2000); }
+
+setInterval(() => {
+  const farmActive = document.getElementById('farm').classList.contains('active');
+  if (farmActive) {
+    const activeTab = document.querySelector('.farm-tab.active');
+    if (activeTab && activeTab.dataset.tab === 'fields') renderFarmTab('fields');
+    if (activeTab && activeTab.dataset.tab === 'animals') renderFarmTab('animals');
+  }
+  Object.keys(state.animals).forEach(id => {
+    const st = state.animals[id];
+    if (st.fed && !st.ready) {
+      st.timer++;
+      if (st.timer >= 60) {
+        st.ready = true;
+        if (document.getElementById('farm').classList.contains('active') && document.querySelector('.farm-tab.active')?.dataset.tab === 'animals') renderFarmTab('animals');
+      }
+    }
+  });
+  updateBuffs();
+  if (document.getElementById('hero-sidebar').classList.contains('open')) openHeroSidebar();
+}, 1000);
+
+// Автосохранение каждые 30 секунд
+setInterval(() => { saveGame(); }, 30000);
+
+// Загрузка при старте
+const hasSave = loadGame();
+if (hasSave) {
+  toast('📂 Прогресс загружен!');
+}
+
+updateInvBtn(); updateCoins();
+</script>
+</body>
+</html>
